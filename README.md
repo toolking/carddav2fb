@@ -26,18 +26,18 @@ This is an extendeded version of https://github.com/andig/carddav2fb which is an
 
 Install carddav2fb:
 
-    `git clone https://github.com/andig/carddav2fb.git`
-    `cd carddav2fb`
-    `composer install`
+    git clone https://github.com/andig/carddav2fb.git
+    cd carddav2fb
+    composer install
 
 Install composer (see https://getcomposer.org/download/ for newer instructions):
 
-    `php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"`
-    `php -r "if (hash_file('SHA384', 'composer-setup.php') === '544e09ee996cdf60ece3804abc52599c22b1f40f4323403c44d44fdfdd586475ca9813a858088ffbc1f233e9b180f061') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"`
-    `php composer-setup.php`
-    `php -r "unlink('composer-setup.php');"`
-    `mv composer.phar /usr/local/bin/composer`
-    `composer install`
+    php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+    php -r "if (hash_file('SHA384', 'composer-setup.php') === 544e09ee996cdf60ece3804abc52599c22b1f40f4323403c44d44fdfdd586475ca9813a858088ffbc1f233e9b180f061') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
+    php composer-setup.php
+    php -r "unlink('composer-setup.php');"
+    mv composer.phar /usr/local/bin/composer
+    composer install
 
 Edit `config.example.php` and save as `config.php` or use an other name of your choice (but than keep in mind to use the -c option to define your renamed file)
 
@@ -45,23 +45,23 @@ Edit `config.example.php` and save as `config.php` or use an other name of your 
 
 List all commands:
 
-    `php carddav2fb.php list`
+    php carddav2fb.php list
 
 Complete processing:
 
-    `php carddav2fb.php run`
+    php carddav2fb.php run
 
 Or, if you want to upload profil images:
 
-    `php carddav2fb.php run -i`
+    php carddav2fb.php run -i
 
 If you want to use a different name for the configuration file instead of config.php:
 
-    `php carddav2fb.php run -c different_conf.php`
+    php carddav2fb.php run -c different_conf.php
 
 Get help for a command:
 
-    `php carddav2fb.php run -h`
+    php carddav2fb.php run -h
 
 ### Precondition for using image upload (command -i)
 
