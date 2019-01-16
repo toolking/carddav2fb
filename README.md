@@ -26,7 +26,7 @@ This is an extendeded version of https://github.com/andig/carddav2fb which is an
 
 Install carddav2fb:
 
-    git clone https://github.com/andig/carddav2fb.git
+    git clone https://github.com/BlackSenator/carddav2fb.git
     cd carddav2fb
     composer install
 
