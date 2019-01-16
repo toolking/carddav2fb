@@ -131,6 +131,24 @@ class Backend
     }
 
     /**
+     * delivers the UNIX timestamp of the last modification
+     */
+    public function getModDate ()
+    {            
+        $response = $this->query($this->url, 'PROPFIND');
+        if (in_array($response->getStatusCode(), [200,207])) {
+            $body = new \SimpleXMLElement((string)$response->getBody());
+            foreach ($body->response->propstat->prop as $prop) {
+                IF ($prop->resourcetype->collection) {
+                    return strtotime($prop->getlastmodified);
+                    break;
+                }
+            }
+        }
+        throw new \Exception('Received HTTP ' . $response->getStatusCode());
+    }
+
+    /**
      * Gets all vCards including additional information from the CardDAV server
      *
      * @param   boolean $include_vcards     Include vCards within the response (simplified only)
