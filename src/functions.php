@@ -8,6 +8,8 @@ use Andig\Vcard\mk_vCard;
 use Andig\FritzBox\Converter;
 use Andig\FritzBox\Api;
 use Andig\FritzBox\TR064;
+use Andig\FritzAdr\convert2fa;
+use Andig\FritzAdr\fritzadr;
 use Andig\ReplyMail\replymail;
 use \SimpleXMLElement;
 
@@ -101,10 +103,12 @@ function uploadImages(array $vcards, $config, $configPhonebook, callable $callba
     }
     if (!ftp_login($ftp_conn, $config['user'], $config['password'])) {
         error_log(PHP_EOL."ERROR: Could not log in ".$config['user']." to ftp server ".$ftpserver." for image upload.");
+        ftp_close($ftp_conn);
         return false;
     }
     if (!ftp_chdir($ftp_conn, $config['fonpix'])) {
         error_log(PHP_EOL."ERROR: Could not change to dir ".$config['fonpix']." on ftp server ".$ftpserver." for image upload.");
+        ftp_close($ftp_conn);
         return false;
     }
 
@@ -375,9 +379,10 @@ function xml_adopt(SimpleXMLElement $to, SimpleXMLElement $from)
 }
 
 /**
- * checks if all phone numbers from the FRITZ!Box phonebook are included in the new phonebook
- * if not so the number(s) and type(s) resp. vip flag are compiled in a vCard and sent as
- * a vcf file with the name as filename will be send as an email attachement 
+ * this function checked if all phone numbers from the FRITZ!Box phonebook are
+ * included in the new phonebook. if not so the number(s) and type(s) resp.
+ * vip flag are compiled in a vCard and sent as a vcf file with the name as
+ * filename will be send as an email attachement 
  */
 function checkUpdates ($xmlOld, $xmlNew, $config) {
     
@@ -397,11 +402,12 @@ function checkUpdates ($xmlOld, $xmlNew, $config) {
     $numbers = [];
         
     // check if entries are not included in the intended upload
+    $xmlOld->asXML('telefonbuch_dn.xml');
     foreach ($xmlOld->phonebook->contact as $contact) {
         $x = -1;
         $numbers = [];                                                          // container for n-1 new numbers per contact
         foreach ($contact->telephony->number as $number) {
-            if((substr($number, 0, 1) == '*') || (substr($number, 0, 1) == '#')) {  // skip internal numbers
+            if ((substr($number, 0, 1) == '*') || (substr($number, 0, 1) == '#')) {  // skip internal numbers
                 continue;
             }
             $querystr = '//telephony[number = "' .  (string)$number . '"]';    // assemble search string
@@ -425,6 +431,60 @@ function checkUpdates ($xmlOld, $xmlNew, $config) {
         }
     }
     return $i;
+}
+
+/**
+ * if $config['fritzbox']['fritzadr'] is set, than all contact (names) with a fax number
+ * are copied into a dBase III database fritzadr.dbf for FRITZ!fax purposes 
+ */
+function uploadFritzAdr ($xml, $config)
+{ 
+    $fritzbox        = $config['fritzbox'];
+    $convertFritzAdr = new convert2fa();
+    $fritzAdr        = new fritzadr;
+
+    // Prepare FTP connection
+    $ftpserver = $fritzbox['url'];
+    $ftpserver = str_replace("http://", "", $ftpserver);    // config.example.php has http:// which breaks FTP connect
+    $ftp_conn = ftp_connect($ftpserver);
+    if (!$ftp_conn) {
+        error_log(PHP_EOL."ERROR: Could not connect to ftp server ".$ftpserver." for FRITZ!adr upload.");
+        return false;
+    }
+    if (!ftp_login($ftp_conn, $fritzbox['user'], $fritzbox['password'])) {
+        error_log(PHP_EOL."ERROR: Could not log in ".$config['user']." to ftp server ".$ftpserver." for FRITZ!adr upload.");
+        return false;
+    }
+    if (!ftp_chdir($ftp_conn, $fritzbox['fritzadr'])) {
+        error_log(PHP_EOL."ERROR: Could not change to dir ".$fritzbox['fritzadr']." on ftp server ".$ftpserver." for FRITZ!adr upload.");
+        return false;
+    }
+    
+    // we use a fast in-memory file stream
+    $memstream = fopen('php://memory', 'r+');
+    if ($fritzAdr->create($memstream)) {
+        $fritzAdr->open();
+        $faxContacts = $convertFritzAdr->convert($xml, $fritzAdr->numAttributes);
+        $numRecords = count($faxContacts); 
+        if ($numRecords) {
+            foreach ($faxContacts as $faxContact) {
+                $fritzAdr->addRecord($faxContact);
+            }
+        }
+        //$fritzAdr->close();
+    }
+    if ($numRecords) {
+        rewind($memstream);
+
+        // upload new image
+        if (!ftp_fput($ftp_conn, '/fritzadr.dbf', $memstream, FTP_BINARY)) {
+            error_log("Error uploading fritzadr.dbf!".PHP_EOL);
+            return 0;
+        }
+    }    
+    $fritzAdr->close();
+    fclose($memstream);
+    return $numRecords;
 }
 
 /**
