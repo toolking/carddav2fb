@@ -113,17 +113,24 @@ class RunCommand extends Command
             // check for newer contacts in phonebook
             if ($this->config['phonebook']['forcedupload'] < 3) {
                 error_log("Checking FRITZ!Box for newer entries");
-                $i = checkUpdates ($recentPhonebook, $xml, $this->config);
+                $i = checkUpdates($recentPhonebook, $xml, $this->config);
                 if ($i) {
-                   error_log(sprintf("Saved %d newer entries from FRITZ!Box phonebook", $i));
+                    error_log(sprintf("Saved %d newer entries from FRITZ!Box phonebook", $i));
+                }
+            }
+
+            // fax number upload
+            if (isset($this->config['fritzbox']['fritzadr'])) {
+                error_log("Selecting and uploading fax number(s) for FRITZ!fax");
+                $i = uploadFritzAdr($xml, $this->config);
+                if ($i) {
+                    error_log(sprintf("Uploaded %d fax number entries into fritzadr.dbf", $i));
                 }
             }
 
             // upload
             error_log("Uploading");
-
             $xmlStr = $xml->asXML();
-
             upload($xmlStr, $this->config);
             error_log("Successful uploaded new Fritz!Box phonebook");
         }
