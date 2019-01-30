@@ -1,6 +1,4 @@
 /composer.lock
 /config.php
 /test.php
-/cards.xml
 /vendor/
-php-cs-fixer.config

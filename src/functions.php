@@ -149,7 +149,6 @@ function uploadImages(array $vcards, $config, $configPhonebook, callable $callba
                 $memstream = fopen('php://memory', 'r+');     // we use a fast in-memory file stream
                 fputs($memstream, $vcard->rawPhoto);
                 rewind($memstream);
-
                 // upload new image
                 if (ftp_fput($ftp_conn, $newFTPimage, $memstream, FTP_BINARY)) {
                     $countUploadedImages++;
@@ -402,7 +401,6 @@ function checkUpdates ($xmlOld, $xmlNew, $config) {
     $numbers = [];
         
     // check if entries are not included in the intended upload
-    $xmlOld->asXML('telefonbuch_dn.xml');
     foreach ($xmlOld->phonebook->contact as $contact) {
         $x = -1;
         $numbers = [];                                                          // container for n-1 new numbers per contact
@@ -410,7 +408,7 @@ function checkUpdates ($xmlOld, $xmlNew, $config) {
             if ((substr($number, 0, 1) == '*') || (substr($number, 0, 1) == '#')) {  // skip internal numbers
                 continue;
             }
-            $querystr = '//telephony[number = "' .  (string)$number . '"]';    // assemble search string
+            $querystr = sprintf('//telephony[number = "%s"]', (string)$number);    // assemble search string
             if (!$DataObjects = $xmlNew->xpath($querystr)) {                   // not found in upload = new entry! 
                 $x++;                                                          // possible n+1 new/additional numbers
                 $numbers[$x][0] = (string)$number['type'];
@@ -436,13 +434,14 @@ function checkUpdates ($xmlOld, $xmlNew, $config) {
 /**
  * if $config['fritzbox']['fritzadr'] is set, than all contact (names) with a fax number
  * are copied into a dBase III database fritzadr.dbf for FRITZ!fax purposes 
+ * @param   xml    $fbphonebook    phone book in FRITZ!Box format
+ * @param   array  the  amount of FRITZ!Adr dBase fields
+ * @return  int    number of records written to fritzadr.dbf
  */
 function uploadFritzAdr ($xml, $config)
-{ 
-    $fritzbox        = $config['fritzbox'];
-    $convertFritzAdr = new convert2fa();
-    $fritzAdr        = new fritzadr;
-
+{   
+    $fritzbox = $config['fritzbox'];
+    
     // Prepare FTP connection
     $ftpserver = $fritzbox['url'];
     $ftpserver = str_replace("http://", "", $ftpserver);    // config.example.php has http:// which breaks FTP connect
@@ -450,7 +449,7 @@ function uploadFritzAdr ($xml, $config)
     if (!$ftp_conn) {
         error_log(PHP_EOL."ERROR: Could not connect to ftp server ".$ftpserver." for FRITZ!adr upload.");
         return false;
-    }
+    }  
     if (!ftp_login($ftp_conn, $fritzbox['user'], $fritzbox['password'])) {
         error_log(PHP_EOL."ERROR: Could not log in ".$config['user']." to ftp server ".$ftpserver." for FRITZ!adr upload.");
         return false;
@@ -459,31 +458,26 @@ function uploadFritzAdr ($xml, $config)
         error_log(PHP_EOL."ERROR: Could not change to dir ".$fritzbox['fritzadr']." on ftp server ".$ftpserver." for FRITZ!adr upload.");
         return false;
     }
-    
-    // we use a fast in-memory file stream
-    $memstream = fopen('php://memory', 'r+');
-    if ($fritzAdr->create($memstream)) {
-        $fritzAdr->open();
-        $faxContacts = $convertFritzAdr->convert($xml, $fritzAdr->numAttributes);
-        $numRecords = count($faxContacts); 
-        if ($numRecords) {
-            foreach ($faxContacts as $faxContact) {
-                $fritzAdr->addRecord($faxContact);
-            }
-        }
-        //$fritzAdr->close();
-    }
-    if ($numRecords) {
-        rewind($memstream);
 
-        // upload new image
-        if (!ftp_fput($ftp_conn, '/fritzadr.dbf', $memstream, FTP_BINARY)) {
-            error_log("Error uploading fritzadr.dbf!".PHP_EOL);
-            return 0;
+    $memstream = fopen('php://memory', 'r+');                  // open a fast in-memory file stream
+    $converter = new convert2fa();                             
+    $faxContacts = $converter->convert($xml);                  // extracting 
+    $numRecords = count($faxContacts); 
+    if ($numRecords) {
+        $fritzAdr = new fritzadr();
+        foreach ($faxContacts as $faxContact) {
+            $fritzAdr->addRecord($faxContact);
         }
-    }    
-    $fritzAdr->close();
+        fputs($memstream, $fritzAdr->getDatabase());
+        rewind($memstream);
+        //file_put_contents('FritzAdr.dbf', $fritzAdr->getDatabase());
+        if (!ftp_fput($ftp_conn, 'fritzadr.dbf', $memstream, FTP_BINARY)) {
+            error_log("Error uploading fritzadr.dbf!" . PHP_EOL);
+        }
+    }
     fclose($memstream);
+    ftp_close($ftp_conn);
+
     return $numRecords;
 }
 

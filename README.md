@@ -15,6 +15,7 @@ This is an extendeded version of https://github.com/andig/carddav2fb which is an
   * the contact's UID of the CardDAV server is added to the phonebook entry (not visible in the FRITZ! Box GUI)
   and additonal with this version:
   * specify with `forcedupload` whether the phone book should be overwritten, or if phone numbers that are not included in the upload are to be saved as vcf by e-mail or whether a download from the CardDAV server should be made if there are no new changes
+  * specify with `fritzadr` if fax numbers should be extracted from the phonebook and stored as FRITZ!Fax (fax4box) adressbook (fritzadr.dbf)
   * the wiki contains a few more information and hints
 
 ## Requirements
@@ -71,7 +72,7 @@ Get help for a command:
 
 ### Precondition for using this version
 
-  * In addition to Andig's version, composer.json includes two additional libraries - so if your upgrading ´composer.lock´ must be deleted and reinstalled
+  * In addition to andig's version, composer.json includes two additional libraries - so if your upgrading ´composer.lock´ must be deleted and reinstalled
   * the config.example.php contains additional settings - so if your upgrading be aware to include them to your config.php
 
 ## License

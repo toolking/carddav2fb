@@ -33,6 +33,7 @@ $config = [
         'user' => '',
         'password' => '',
         'fonpix'   => '/[YOURUSBSTICK]/FRITZ/fonpix',   // the storage on your usb stick for uploading images
+        'fritzadr' => '/[YOURUSBSTICK]/FRITZ/mediabox'           // if not empty FRITZadr will be written to this location
     ],
 
     /*
