@@ -29,20 +29,33 @@ class RunCommand extends Command
 
         // we want to check for image upload show stoppers as early as possible
         if ($input->getOption('image')) {
-            $precresult = $this->uploadImagePreconditionsOK($this->config['fritzbox'], $this->config['phonebook']);
-            if ($precresult !== true) {
-                error_log($precresult.PHP_EOL);
-                return(21);                     // error code to evaluate by shell
-            }
+            $this->uploadImagePreconditions($this->config['fritzbox'], $this->config['phonebook']);
         }
 
         // compare timestamp of CardDAV against last update on Fritz!Box
         $lastupdate = 0;
         $latestmod  = 0;
         $recentPhonebook = downloadPhonebook ($this->config);           // is needed for forecedupload > 1 as well
+        $quantity = 0;
+        $vcards = [];
+        $xcards = [];
+        $substitutes = ($input->getOption('image')) ? ['PHOTO'] : [];
 
+        foreach ($this->config['server'] as $server) {
+            error_log("Downloading vCard(s) from account ".$server['user']);
         if ($this->config['phonebook']['forcedupload'] < 2) {
+            $backend = backendProvider($server);
 
+            $progress = new ProgressBar($output);
+            $progress->start();
+            $xcards = download($backend, $substitutes, function () use ($progress) {
+                $progress->advance();
+            });
+            $progress->finish();
+
+            $vcards = array_merge($vcards, $xcards);
+            $quantity += count($vcards);
+            error_log(sprintf("\nDownloaded %d vCard(s)", $quantity));
             error_log("Determine the last change of the FRITZ!Box phonebook");
             // date_default_timezone_set('CET');
             $lastupdate = $recentPhonebook->phonebook->timestamp;       // get timestamp from phonebook
@@ -78,6 +91,19 @@ class RunCommand extends Command
                 error_log(sprintf(PHP_EOL."Downloaded %d vCard(s)", $quantity));
             }
 
+        // image upload
+        if ($input->getOption('image')) {
+            error_log("Detaching and uploading image(s)");
+
+            $progress = new ProgressBar($output);
+            $progress->start(count($filtered));
+            $pictures = uploadImages($filtered, $this->config['fritzbox'], $this->config['phonebook'], function () use ($progress) {
+                $progress->advance();
+            });
+            $progress->finish();
+
+            if ($pictures) {
+                error_log(sprintf("Uploaded/refreshed %d of %d image file(s)", $pictures[0], $pictures[1]));
             // dissolve
             error_log("Dissolving groups (e.g. iCloud)");
             $cards = dissolveGroups($vcards);
@@ -105,11 +131,21 @@ class RunCommand extends Command
             } else {
                 unset($this->config['phonebook']['imagepath']);             // otherwise convert will set wrong links
             }
+        } else {
+            unset($this->config['phonebook']['imagepath']);             // otherwise convert will set wrong links
+        }
 
             // fritzbox format
             $xml = export($filtered, $this->config);
             error_log(sprintf(PHP_EOL."Converted %d vCard(s)", count($filtered)));
 
+        if (!count($filtered)) {
+            error_log("Phonebook empty - skipping upload");
+            return null;
+        }
+
+        // upload
+        error_log("Uploading");
             // check for newer contacts in phonebook
             if ($this->config['phonebook']['forcedupload'] < 3) {
                 error_log("Checking FRITZ!Box for newer entries");
@@ -142,27 +178,43 @@ class RunCommand extends Command
      *
      * @return            mixed     (true if all preconditions OK, error string otherwise)
      */
-    private function uploadImagePreconditionsOK($configFritz, $configPhonebook)
+    private function uploadImagePreconditions($configFritz, $configPhonebook)
     {
         if (!function_exists("ftp_connect")) {
-            return "ERROR: FTP functions not available in your PHP installation.".PHP_EOL.
-                    "       Image upload not possible (remove -i switch)".PHP_EOL.
-                    "       Ensure PHP was installed with --enable-ftp".PHP_EOL.
-                    "       Ensure php.ini does not list ftp_* functions in 'disable_functions'".PHP_EOL.
-                    "       In shell run: php -r \"phpinfo();\" | grep FTP";
+            throw new \Exception(
+                <<<EOD
+FTP functions not available in your PHP installation.
+Image upload not possible (remove -i switch).
+Ensure PHP was installed with --enable-ftp
+Ensure php.ini does not list ftp_* functions in 'disable_functions'
+In shell run: php -r \"phpinfo();\" | grep -i FTP"
+EOD
+            );
         }
         if (!$configFritz['fonpix']) {
-            return "ERROR: config.php missing fritzbox/fonpix setting.".PHP_EOL.
-                    "       Image upload not possible (remove -i switch).";
+            throw new \Exception(
+                <<<EOD
+config.php missing fritzbox/fonpix setting.
+Image upload not possible (remove -i switch).
+EOD
+            );
         }
         if (!$configPhonebook['imagepath']) {
-            return "ERROR: config.php missing phonebook/imagepath setting.".PHP_EOL.
-                    "       Image upload not possible (remove -i switch).";
+            throw new \Exception(
+                <<<EOD
+config.php missing phonebook/imagepath setting.
+Image upload not possible (remove -i switch).
+EOD
+            );
         }
         if ($configFritz['user'] == 'dslf-conf') {
-            return "ERROR: TR-064 default user dslf-conf has no permission for ftp access.".PHP_EOL.
-                    "       Image upload not possible (remove -i switch).";
+            throw new \Exception(
+                <<<EOD
+TR-064 default user dslf-conf has no permission for ftp access.
+Image upload not possible (remove -i switch).
+EOD
+            );
         }
-        return true;
     }
+}
 }

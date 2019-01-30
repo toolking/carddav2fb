@@ -16,7 +16,10 @@ $config = [
             'url' => 'https://...',
             'user' => '',
             'password' => '',
-            // 'authentication' => 'digest' // uncomment for digest auth
+            'http' => [           // http client options are directly passed to Guzzle http client
+                // 'verify' => false, // uncomment to disable certificate check
+                // 'auth' => 'digest', // uncomment for digest auth
+            ]
         ],
 /* add as many as you need
         [
@@ -34,6 +37,10 @@ $config = [
         'password' => '',
         'fonpix'   => '/[YOURUSBSTICK]/FRITZ/fonpix',   // the storage on your usb stick for uploading images
         'fritzadr' => '/[YOURUSBSTICK]/FRITZ/mediabox'           // if not empty FRITZadr will be written to this location
+        'http' => [           // http client options are directly passed to Guzzle http client
+            // 'verify' => false, // uncomment to disable certificate check
+        ],
+        'plainFTP' => false, // set true to use FTP instead of FTPS e.g. on Windows
     ],
 
     /*

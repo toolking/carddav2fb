@@ -2,19 +2,21 @@
 
 namespace Andig\CardDav;
 
-use GuzzleHttp\Client;
-use GuzzleHttp\Psr7\Request;
-use Ringcentral\Psr7;
+use Andig\Http\ClientTrait;
 use Andig\Vcard\Parser;
+use \stdClass;
 
 /**
  * @author Christian Putzke <christian.putzke@graviox.de>
+ * @author Andreas Goetz <cpuidle@gmx.de>
  * @copyright Christian Putzke
  * @license http://www.gnu.org/licenses/agpl.html GNU AGPL v3 or later
  */
 
 class Backend
 {
+    use ClientTrait;
+
     /**
      * CardDAV server url
      *
@@ -30,37 +32,9 @@ class Backend
     private $url_vcard_extension = '.vcf';
 
     /**
-     * Authentication: username
-     *
-     * @var  string
-     */
-    private $username;
-
-    /**
-     * Authentication: password
-     *
-     * @var  string
-     */
-    private $password;
-
-    /**
-     * Authentication: method
-     *
-     * @var  string|null
-     */
-    private $authentication;
-
-    /**
      * Progress callback
      */
     private $callback;
-
-    /**
-     * Do not use this directly! Rather use {@see getClient()}
-     *
-     * @var Client
-     */
-    private $client;
 
     /**
      * Set substitutions of links to embedded data
@@ -100,11 +74,7 @@ class Backend
      */
     public function setUrl(string $url)
     {
-        $this->url = $url;
-
-        if (substr($this->url, -1, 1) !== '/') {
-            $this->url = $this->url . '/';
-        }
+        $this->url = rtrim($url, '/') . '/';
 
         // workaround for providers that don't use the default .vcf extension
         if (strpos($this->url, "google.com")) {
@@ -115,19 +85,9 @@ class Backend
     /**
      * Set progress callback
      */
-    public function setProgress($callback = null)
+    public function setProgress(callable $callback=null)
     {
         $this->callback = $callback;
-    }
-
-    /**
-     * Set credentials
-     */
-    public function setAuth(string $username, string $password, string $method = null)
-    {
-        $this->username = $username;
-        $this->password = $password;
-        $this->authentication = $method;
     }
 
     /**
@@ -151,73 +111,40 @@ class Backend
     /**
      * Gets all vCards including additional information from the CardDAV server
      *
-     * @param   boolean $include_vcards     Include vCards within the response (simplified only)
-     * @return  string                      Raw or simplified XML response
+     * @return  stdClass[]   All parsed Vcards from backend
      */
-    public function getVcards($include_vcards = true)
+    public function getVcards(): array
     {
-        $response = $this->query($this->url, 'PROPFIND');
-
-        if (in_array($response->getStatusCode(), [200,207])) {
-            $body = (string)$response->getBody();
-            return $this->simplify($body, $include_vcards);
-        }
-
-        throw new \Exception('Received HTTP ' . $response->getStatusCode());
-    }
-
-    /**
-     * Get initialized HTTP client
-     *
-     * @return Client
-     */
-    private function getClient(): Client
-    {
-        if (!$this->client) {
-            $this->client = new Client($this->getClientOptions());
-        }
-
-        return $this->client;
-    }
-
-    /**
-     * HTTP client options
-     *
-     * @param array $options
-     * @return array
-     */
-    private function getClientOptions($options = []): array
-    {
-        if ($this->username) {
-            $options['auth'] = [$this->username, $this->password, $this->authentication];
-        }
-
-        return $options;
+        $response = $this->getClient()->request('PROPFIND', $this->url);
+        $body = (string)$response->getBody();
+        return $this->processPropFindResponse($body);
     }
 
     /**
      * If elements are declared as to be substituted,
      * the data from possibly linked sources are embedded directly into the vCard
      *
-     * @param   string $vcard               single parsed vCard
+     * @param   stdClass $vcard             single parsed vCard
      * @param   string $substituteID        the property whose value is to be replaced ('logo', 'key', 'photo' or 'sound')
-     * @param   string $server              the current CardDAV server adress
-     * @return  string                      single vCard with embedded value
+     * @return  stdClass                    single vCard with embedded value
      */
-    private function embedBase64($vcard, $substituteID, $server)
+    private function embedBase64(stdClass $vcard, string $substituteID): stdClass
     {
-        if (!array_key_exists($substituteID, $vcard)) {
+        if (!property_exists($vcard, $substituteID)) {
             return $vcard;
         }
-        if (!preg_match("/http/", $vcard->{$substituteID})) {    // no external URL set -> must be already base64 or local
+
+        if (!preg_match("/^http/", $vcard->{$substituteID})) {    // no external URL set -> must be already base64 or local
             return $vcard;
         }
+
         // check if mime is linked onto the same server
-        $serv = explode('/', $server, 4);                      // get the beginning of the current server adress
+        $serv = explode('/', $this->url, 4);                   // get the beginning of the current server adress
         $link = explode('/', $vcard->{$substituteID}, 4);      // get the beginning of the linked adress
         if (strcasecmp($serv[2], $link[2]) !== 0) {            // if they aren´t equal authorisation will fail!
             return $vcard;
         }
+
         $embedded = $this->getLinkedData($vcard->{$substituteID});   // get the data from the external URL
         $types = '';
         switch ($vcard->version) {                             // the different vCard versions must be considered
@@ -228,10 +155,12 @@ class Backend
                 $types = "data:" . $embedded['mimetype'] . ";base64";
                 break;
         }
+
         $rawField  = "raw" . ucfirst($substituteID);
         $dataField = $substituteID . "Data";
         $vcard->$rawField  = $embedded['data'];
         $vcard->$dataField = $types;
+
         return $vcard;
     }
 
@@ -245,76 +174,61 @@ class Backend
      *                  'subtype',     e.g. "mpeg"
      *                  'parameters',  whatever
      *                  'data']        the base64 encoded data
-     * @throws Exception
+     * @throws \Exception
      */
-    public function getLinkedData($uri)
+    public function getLinkedData(string $uri): array
     {
-        $request = new Request('GET', $uri);
+        $response = $this->getClient()->request('GET', $uri);
+        $contentType = $response->getHeader('Content-Type');
 
-        if ($this->username) {
-            $credentials = base64_encode($this->username . ':' . $this->password);
-            $request = $request->withHeader('Authorization', 'Basic ' . $credentials);
-        }
-        $response = $this->getClient()->send($request);
+        @list($mimeType, $parameters) = explode(';', $contentType[0], 2);
+        @list($type, $subType) = explode('/', $mimeType);
 
-        if (200 !== $response->getStatusCode()) {
-            throw new \Exception('Received HTTP ' . $response->getStatusCode());
-        } else {
-            $contentType = $response->getHeader('Content-Type');
-
-            @list($mimeType, $parameters) = explode(';', $contentType[0], 2);
-            @list($type, $subType) = explode('/', $mimeType);
-
-            $externalData = [
-                'mimetype'   => $mimeType ?? '',
-                'type'       => $type ?? '',
-                'subtype'    => $subType ?? '',
-                'parameters' => $parameters ?? '',
-                'data'       => (string)$response->getBody(),
-            ];
-            return $externalData;
-        }
+        $externalData = [
+            'mimetype'   => $mimeType ?? '',
+            'type'       => $type ?? '',
+            'subtype'    => $subType ?? '',
+            'parameters' => $parameters ?? '',
+            'data'       => (string)$response->getBody(),
+        ];
+        return $externalData;
     }
 
     /**
      * Gets a clean vCard from the CardDAV server
      *
      * @param    string  $vcard_id   vCard id on the CardDAV server
-     * @return   string              vCard (text/vcard)
+     * @return   stdClass              vCard (text/vcard)
      */
-    public function getVcard($vcard_id)
+    public function getVcard(string $vcard_id): stdClass
     {
-        $vcard_id = str_replace($this->url_vcard_extension, null, $vcard_id);
-        $response = $this->query($this->url . $vcard_id . $this->url_vcard_extension, 'GET');
+        $vcard_id = str_replace($this->url_vcard_extension, '', $vcard_id);
+        $response = $this->getClient()->request('GET', $this->url . $vcard_id . $this->url_vcard_extension);
 
-        if (in_array($response->getStatusCode(), [200,207])) {
-            $body = (string)$response->getBody();
+        $body = (string)$response->getBody();
 
-            $parser = new Parser($body);
-            $vcard = $parser->getCardAtIndex(0);
+        $parser = new Parser($body);
+        $vcard = $parser->getCardAtIndex(0);
 
-            if (isset($this->substitutes)) {
-                foreach ($this->substitutes as $substitute) {
-                    $vcard = $this->embedBase64($vcard, $substitute, $this->url);
-                }
+        if (isset($this->substitutes)) {
+            foreach ($this->substitutes as $substitute) {
+                $vcard = $this->embedBase64($vcard, $substitute);
             }
-            if (is_callable($this->callback)) {
-                ($this->callback)();
-            }
-
-            return $vcard;
+        }
+        if (is_callable($this->callback)) {
+            ($this->callback)();
         }
 
-        throw new \Exception('Received HTTP ' . $response->getStatusCode());
+        return $vcard;
     }
 
     /**
-     * Simplify CardDAV XML response
+     * Process CardDAV XML response
      *
      * @param   string  $response           CardDAV XML response
-     * @return  string                      Simplified CardDAV XML response
+     * @return  stdClass[]                  Parsed Vcards from CardDAV XML response
      */
-    private function simplify(string $response): array
+    private function processPropFindResponse(string $response): array
     {
         $response = $this->cleanResponse($response);
         $xml = new \SimpleXMLElement($response);
@@ -325,7 +239,7 @@ class Backend
             if ((preg_match('/vcard/', $response->propstat->prop->getcontenttype) || preg_match('/vcf/', $response->href)) &&
               !$response->propstat->prop->resourcetype->collection) {
                 $id = basename($response->href);
-                $id = str_replace($this->url_vcard_extension, null, $id);
+                $id = str_replace($this->url_vcard_extension, '', $id);
 
                 $cards[] = $this->getVcard($id);
             }
@@ -338,43 +252,16 @@ class Backend
      * Cleans CardDAV XML response
      *
      * @param   string  $response   CardDAV XML response
-     * @return  string  $response   Cleaned CardDAV XML response
+     * @return  string              Cleaned CardDAV XML response
      */
     private function cleanResponse($response)
     {
         $response = utf8_encode($response);
-        $response = str_replace('D:', null, $response);
-        $response = str_replace('d:', null, $response);
-        $response = str_replace('C:', null, $response);
-        $response = str_replace('c:', null, $response);
+        $response = str_replace('D:', '', $response);
+        $response = str_replace('d:', '', $response);
+        $response = str_replace('C:', '', $response);
+        $response = str_replace('c:', '', $response);
 
-        return $response;
-    }
-
-    /**
-     * Query the CardDAV server via curl and returns the response
-     *
-     * @param   string  $url                CardDAV server URL
-     * @param   string  $method             HTTP method like (OPTIONS, GET, HEAD, POST, PUT, DELETE, TRACE, COPY, MOVE)
-     * @param   string  $content            Content for CardDAV queries
-     * @param   string  $content_type       Set content type
-     * @return  array                       Raw CardDAV Response and http status code
-     */
-    private function query($url, $method, $content = null, $content_type = null)
-    {
-        $request = new Request($method, $url, [
-            'Depth' => '1'
-        ]);
-
-        if ($content_type) {
-            $request = $request->withHeader('Content-type', $content_type);
-        }
-
-        if ($content) {
-            $request = $request->withBody($content);
-        }
-
-        $response = $this->getClient()->send($request);
         return $response;
     }
 }

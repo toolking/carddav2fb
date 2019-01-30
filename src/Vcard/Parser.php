@@ -74,11 +74,11 @@ class Parser implements \IteratorAggregate
     /**
      * Fetch the imported VCard at the specified index.
      *
-     * @throws OutOfBoundsException
+     * @throws \OutOfBoundsException
      *
      * @param int $i
      *
-     * @return stdClass
+     * @return \stdClass
      *    The card data object.
      */
     public function getCardAtIndex($i)
@@ -106,6 +106,8 @@ class Parser implements \IteratorAggregate
         // and single white space character are removed).
         $this->content = preg_replace("/\n(?:[ \t])/", "", $this->content);
         $lines = explode("\n", $this->content);
+
+        $cardData = new \stdClass(); // make phpstan happy
 
         // Parse the VCard, line by line.
         foreach ($lines as $line) {

@@ -2,9 +2,9 @@
 
 namespace Andig\FritzBox;
 
-use GuzzleHttp\Client;
-use GuzzleHttp\Psr7\Request;
-use Ringcentral\Psr7;
+use Andig\Http\ClientTrait;
+
+define('EMPTY_SID', '0000000000000000');
 
 /**
  * Copyright (c) 2019 Andreas Götz
@@ -12,31 +12,22 @@ use Ringcentral\Psr7;
  */
 class Api
 {
-    private $username;
-    private $password;
-    private $url;
+    use ClientTrait;
 
-    protected $sid = '0000000000000000';
+    /** @var  string */
+    protected $url;
 
-    /**
-     * Do not use this directly! Rather use {@see getClient()}
-     *
-     * @var Client
-     */
-    private $client;
+    /** @var  string */
+    protected $sid = EMPTY_SID;
 
     /**
      * Execute fb login
      *
      * @access public
      */
-    public function __construct($url = 'https://fritz.box', $username = false, $password = false)
+    public function __construct(string $url = 'https://fritz.box')
     {
         $this->url = rtrim($url, '/');
-        $this->username = $username;
-        $this->password = $password;
-
-        $this->initSID();
     }
 
     /**
@@ -44,34 +35,9 @@ class Api
      *
      * @return string SID
      */
-    public function getSID()
+    public function getSID(): string
     {
         return $this->sid;
-    }
-
-    /**
-     * Get initialized HTTP client
-     *
-     * @return Client
-     */
-    private function getClient(): Client
-    {
-        if (!$this->client) {
-            $this->client = new Client($this->getClientOptions());
-        }
-
-        return $this->client;
-    }
-
-    /**
-     * HTTP client options
-     *
-     * @param array $options
-     * @return array
-     */
-    private function getClientOptions($options = []): array
-    {
-        return $options;
     }
 
     /**
@@ -80,14 +46,14 @@ class Api
      * @param array $formFields
      * @param array $fileFields
      * @return string POST result
-     * @throws Exception
+     * @throws \Exception
      */
-    public function postFile(array $formFields, array $fileFields)
+    public function postFile(array $formFields, array $fileFields): string
     {
         $multipart = [];
 
         // sid must be first parameter
-        $formFields = array_merge(array('sid' => $this->sid), $formFields);
+        $formFields = array_merge(['sid' => $this->sid], $formFields);
 
         foreach ($formFields as $key => $val) {
             $multipart[] = [
@@ -112,31 +78,22 @@ class Api
             'multipart' => $multipart,
         ]);
 
-        if (200 !== $resp->getStatusCode()) {
-            throw new \Exception('Received HTTP ' . $resp->getStatusCode());
-        }
-
         return (string)$resp->getBody();
     }
 
     /**
      * Login, throws on failure
      *
-     * @throws Exception
+     * @throws \Exception
      */
-    protected function initSID()
+    public function login()
     {
         $url = $this->url . '/login_sid.lua';
 
         // read the current status
         $resp = $this->getClient()->request('GET', $url);
-        if (200 !== $resp->getStatusCode()) {
-            throw new \Exception('Received HTTP ' . $resp->getStatusCode());
-        }
-
-        // process response
         $xml = simplexml_load_string((string)$resp->getBody());
-        if ($xml->SID != '0000000000000000') {
+        if ($xml->SID != EMPTY_SID) {
             $this->sid = (string)$xml->SID;
             return;
         }
@@ -151,17 +108,14 @@ class Api
                 'response' => $response,
             ]
         ]);
-        if (200 !== $resp->getStatusCode()) {
-            throw new \Exception('Received HTTP ' . $resp->getStatusCode());
-        }
 
-        // finger out the SID from the response
+        // retrieve SID from response
         $xml = simplexml_load_string((string)$resp->getBody());
-        if ($xml->SID != '0000000000000000') {
+        if ($xml->SID != EMPTY_SID) {
             $this->sid = (string)$xml->SID;
             return;
         }
 
-        throw new \Exception('ERROR: Login failed with an unknown response.');
+        throw new \Exception('Login failed with an unknown response - please check credentials.');
     }
 }
