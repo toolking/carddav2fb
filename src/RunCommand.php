@@ -36,30 +36,13 @@ class RunCommand extends Command
         $lastupdate = 0;
         $latestmod  = 0;
         $recentPhonebook = downloadPhonebook ($this->config);           // is needed for forecedupload > 1 as well
-        $quantity = 0;
-        $vcards = [];
-        $xcards = [];
-        $substitutes = ($input->getOption('image')) ? ['PHOTO'] : [];
 
-        foreach ($this->config['server'] as $server) {
-            error_log("Downloading vCard(s) from account ".$server['user']);
         if ($this->config['phonebook']['forcedupload'] < 2) {
-            $backend = backendProvider($server);
-
-            $progress = new ProgressBar($output);
-            $progress->start();
-            $xcards = download($backend, $substitutes, function () use ($progress) {
-                $progress->advance();
-            });
-            $progress->finish();
-
-            $vcards = array_merge($vcards, $xcards);
-            $quantity += count($vcards);
-            error_log(sprintf("\nDownloaded %d vCard(s)", $quantity));
             error_log("Determine the last change of the FRITZ!Box phonebook");
             // date_default_timezone_set('CET');
             $lastupdate = $recentPhonebook->phonebook->timestamp;       // get timestamp from phonebook
             error_log("Determine the last change(s) on the CardDAV server(s)");            
+
             foreach ($this->config['server'] as $server) {              // determine the youngest modification date
                 $backend = backendProvider($server);
                 $timeCache = getlastmodification ($backend);
@@ -72,38 +55,27 @@ class RunCommand extends Command
             error_log("Your Fritz!Box phonebook is more recent than the contacts on the CardDAV server");
         }
         else {
-            $vcards = array();
-            $xcards = array();
+            $quantity = 0;
+            $vcards = [];
+            $xcards = [];
             $substitutes = ($input->getOption('image')) ? ['PHOTO'] : [];
 
             foreach ($this->config['server'] as $server) {
-                $progress = new ProgressBar($output);
                 error_log("Downloading vCard(s) from account ".$server['user']);
-
                 $backend = backendProvider($server);
+
+                $progress = new ProgressBar($output);
                 $progress->start();
                 $xcards = download($backend, $substitutes, function () use ($progress) {
                     $progress->advance();
                 });
                 $progress->finish();
+
                 $vcards = array_merge($vcards, $xcards);
-                $quantity = count($vcards);
-                error_log(sprintf(PHP_EOL."Downloaded %d vCard(s)", $quantity));
+                $quantity += count($vcards);
+                error_log(sprintf("\nDownloaded %d vCard(s)", $quantity));
             }
 
-        // image upload
-        if ($input->getOption('image')) {
-            error_log("Detaching and uploading image(s)");
-
-            $progress = new ProgressBar($output);
-            $progress->start(count($filtered));
-            $pictures = uploadImages($filtered, $this->config['fritzbox'], $this->config['phonebook'], function () use ($progress) {
-                $progress->advance();
-            });
-            $progress->finish();
-
-            if ($pictures) {
-                error_log(sprintf("Uploaded/refreshed %d of %d image file(s)", $pictures[0], $pictures[1]));
             // dissolve
             error_log("Dissolving groups (e.g. iCloud)");
             $cards = dissolveGroups($vcards);
@@ -119,41 +91,36 @@ class RunCommand extends Command
             // image upload
             if ($input->getOption('image')) {
                 error_log("Detaching and uploading image(s)");
-                $imgProgress = new ProgressBar($output);
-                $imgProgress->start(count($filtered));
-                $pictures = uploadImages($filtered, $this->config['fritzbox'], $this->config['phonebook'], function () use ($imgProgress) {
-                        $imgProgress->advance();
+                $progress = new ProgressBar($output);
+                $progress->start(count($filtered));
+                $pictures = uploadImages($filtered, $this->config['fritzbox'], $this->config['phonebook'], function () use ($progress) {
+                    $progress->advance();
                 });
+                $progress->finish();
+
                 if ($pictures) {
                     error_log(sprintf("Uploaded/refreshed %d of %d image file(s)", $pictures[0], $pictures[1]));
                 }
-                $imgProgress->finish();
             } else {
                 unset($this->config['phonebook']['imagepath']);             // otherwise convert will set wrong links
             }
-        } else {
-            unset($this->config['phonebook']['imagepath']);             // otherwise convert will set wrong links
-        }
 
             // fritzbox format
             $xml = export($filtered, $this->config);
             error_log(sprintf(PHP_EOL."Converted %d vCard(s)", count($filtered)));
 
-        if (!count($filtered)) {
-            error_log("Phonebook empty - skipping upload");
-            return null;
-        }
-
-        // upload
-        error_log("Uploading");
-            // check for newer contacts in phonebook
-            if ($this->config['phonebook']['forcedupload'] < 3) {
-                error_log("Checking FRITZ!Box for newer entries");
-                $i = checkUpdates($recentPhonebook, $xml, $this->config);
-                if ($i) {
-                    error_log(sprintf("Saved %d newer entries from FRITZ!Box phonebook", $i));
-                }
+            if (!count($filtered)) {
+                error_log("Phonebook empty - skipping upload");
+                return null;
             }
+
+            // upload
+            error_log("Uploading");
+
+            $xmlStr = $xml->asXML();
+
+            upload($xmlStr, $this->config);
+            error_log("Successful uploaded new Fritz!Box phonebook");
 
             // fax number upload
             if (isset($this->config['fritzbox']['fritzadr'])) {
@@ -163,16 +130,8 @@ class RunCommand extends Command
                     error_log(sprintf("Uploaded %d fax number entries into fritzadr.dbf", $i));
                 }
             }
-
-            // upload
-            error_log("Uploading");
-            $xmlStr = $xml->asXML();
-            upload($xmlStr, $this->config);
-            error_log("Successful uploaded new Fritz!Box phonebook");
         }
     }
-
-
     /**
      * checks if preconditions for upload images are OK
      *
@@ -216,5 +175,4 @@ EOD
             );
         }
     }
-}
 }

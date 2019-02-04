@@ -34,32 +34,6 @@ function backendProvider(array $config): Backend
 }
 
 /**
- * download the current phonebook from the FRITZ!Box
- * @param  array config  configuration
- * @return xml           phonebook
- */
-function downloadPhonebook ($config)
-{
-    $fritzbox  = $config['fritzbox'];
-    $phonebook = $config['phonebook'];
-    
-    $client = new TR064($fritzbox['url'], $fritzbox['user'], $fritzbox['password']);
-    $client->getClient('x_contact', 'X_AVM-DE_OnTel:1');
-    return $client->getPhonebook($phonebook['id']);
-}
-
-/**
- * get the last modification timestamp of the CardDAV data base
- * It´s a little bit time consuming (> 1 sec. Per database) - but much shorter,
- * if depending on the result the complete download can be spared
- * @return  unix timestamp
- */
-function getlastmodification ($backend)
-{
-    return $backend->getModDate();
-}
-
-/**
  * Download vcards from CardDAV server
  *
  * @param Backend $backend
@@ -107,18 +81,12 @@ function uploadImages(array $vcards, array $config, array $phonebook, callable $
     }
     if (!ftp_login($ftp_conn, $config['user'], $config['password'])) {
         throw new \Exception("Could not log in ".$config['user']." to ftp server ".$ftpserver." for image upload.");
-        ftp_close($ftp_conn);
-        return false;
+    }
+    if (!ftp_pasv($ftp_conn, true)) {
+        throw new \Exception("Could not switch to passive mode on ftp server ".$ftpserver." for image upload.");
     }
     if (!ftp_chdir($ftp_conn, $config['fonpix'])) {
         throw new \Exception("Could not change to dir ".$config['fonpix']." on ftp server ".$ftpserver." for image upload.");
-<<<<<<< .mine
-        ftp_close($ftp_conn);
-        return false;
-=======
-
-
->>>>>>> .theirs
     }
 
     // Build up dictionary to look up UID => current FTP image file
@@ -158,6 +126,7 @@ function uploadImages(array $vcards, array $config, array $phonebook, callable $
                 $memstream = fopen('php://memory', 'r+');     // we use a fast in-memory file stream
                 fputs($memstream, $vcard->rawPhoto);
                 rewind($memstream);
+
                 // upload new image
                 if (ftp_fput($ftp_conn, $newFTPimage, $memstream, FTP_BINARY)) {
                     $countUploadedImages++;
@@ -390,6 +359,67 @@ function xml_adopt(SimpleXMLElement $to, SimpleXMLElement $from)
 }
 
 /**
+ * Upload cards to fritzbox
+ *
+ * @param string $xml
+ * @param array $config
+ * @return void
+ */
+function upload(string $xml, $config)
+{
+    $options = $config['fritzbox'];
+
+    $fritz = new Api($options['url']);
+    $fritz->setAuth($options['user'], $options['password']);
+    $fritz->setClientOptions($options['http'] ?? []);
+    $fritz->login();
+
+    $formfields = [
+        'PhonebookId' => $config['phonebook']['id']
+    ];
+
+    $filefields = [
+        'PhonebookImportFile' => [
+            'type' => 'text/xml',
+            'filename' => 'updatepb.xml',
+            'content' => $xml,
+        ]
+    ];
+
+    $result = $fritz->postFile($formfields, $filefields); // send the command
+
+    if (strpos($result, 'Das Telefonbuch der FRITZ!Box wurde wiederhergestellt') === false) {
+        throw new \Exception('Upload failed');
+    }
+}
+
+/**
+ * download the current phonebook from the FRITZ!Box
+ * @param  array config  configuration
+ * @return xml           phonebook
+ */
+function downloadPhonebook ($config)
+{
+    $fritzbox  = $config['fritzbox'];
+    $phonebook = $config['phonebook'];
+    
+    $client = new TR064($fritzbox['url'], $fritzbox['user'], $fritzbox['password']);
+    $client->getClient('x_contact', 'X_AVM-DE_OnTel:1');
+    return $client->getPhonebook($phonebook['id']);
+}
+
+/**
+ * get the last modification timestamp of the CardDAV data base
+ * Itï¿½s a little bit time consuming (> 1 sec. Per database) - but much shorter,
+ * if depending on the result the complete download can be spared
+ * @return  unix timestamp
+ */
+function getlastmodification ($backend)
+{
+    return $backend->getModDate();
+}
+
+/**
  * this function checked if all phone numbers from the FRITZ!Box phonebook are
  * included in the new phonebook. if not so the number(s) and type(s) resp.
  * vip flag are compiled in a vCard and sent as a vcf file with the name as
@@ -491,39 +521,4 @@ function uploadFritzAdr ($xml, $config)
     ftp_close($ftp_conn);
 
     return $numRecords;
-}
-
-/**
- * Upload cards to fritzbox
- *
- * @param string $xml
- * @param array $config
- * @return void
- */
-function upload(string $xml, $config)
-{
-    $options = $config['fritzbox'];
-
-    $fritz = new Api($options['url']);
-    $fritz->setAuth($options['user'], $options['password']);
-    $fritz->setClientOptions($options['http'] ?? []);
-    $fritz->login();
-
-    $formfields = [
-        'PhonebookId' => $config['phonebook']['id']
-    ];
-
-    $filefields = [
-        'PhonebookImportFile' => [
-            'type' => 'text/xml',
-            'filename' => 'updatepb.xml',
-            'content' => $xml,
-        ]
-    ];
-
-    $result = $fritz->postFile($formfields, $filefields); // send the command
-
-    if (strpos($result, 'Das Telefonbuch der FRITZ!Box wurde wiederhergestellt') === false) {
-        throw new \Exception('Upload failed');
-    }
 }

@@ -33,7 +33,7 @@ class DownloadCommand extends Command
 
         $vcards = [];
         $substitutes = ($input->getOption('image')) ? ['PHOTO'] : [];
-
+        
         if ($filename = $input->getArgument('filename')) {
             // read from file
             $vcards = json_decode(file_get_contents($filename));
@@ -45,18 +45,18 @@ class DownloadCommand extends Command
             foreach ($this->config['server'] as $server) {
                 error_log("Downloading vCard(s) from account ".$server['user']);
                 $backend = backendProvider($server);
-
+        
                 $progress = new ProgressBar($output);
                 $progress->start();
                 $downloaded = download($backend, $substitutes, function () use ($progress) {
                     $progress->advance();
                 });
                 $progress->finish();
-
+        
                 $vcards = array_merge($vcards, $downloaded);
                 error_log(sprintf("\nDownloaded %d vCard(s)", count($vcards)));
             }
-
+        
             if ($file = $input->getOption('raw')) {
                 $json = json_encode($vcards, self::JSON_OPTIONS);
                 file_put_contents($file, $json);
