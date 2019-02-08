@@ -13,14 +13,16 @@ This is an extendeded version of https://github.com/andig/carddav2fb which is an
   * if more than nine phone numbers are included, the contact will be divided into a corresponding number of phonebook entries (any existing email addresses are assigned to the first set [there is no quantity limit!])
   * phone numbers are sorted by type. The order of the conversion values ('phoneTypes') determines the order in the phone book entry
   * the contact's UID of the CardDAV server is added to the phonebook entry (not visible in the FRITZ! Box GUI)
-  and additonal with this version:
-  * specify with `forcedupload` whether the phone book should be overwritten, or if phone numbers that are not included in the upload are to be saved as vcf by e-mail or whether a download from the CardDAV server should be made if there are no new changes
-  * specify with `fritzadr` if fax numbers should be extracted from the phonebook and stored as FRITZ!Fax (fax4box) adressbook (fritzadr.dbf)
-  * the wiki contains a few more information and hints
+
+  Additonal with this version (fork):
+  * specify with `forcedupload` whether the phone book should be overwritten, or if phone numbers that are not included in the upload are to be saved as vcf by e-mail (see wiki for handling details). Last but not least: whether a download from the CardDAV server should be made if there are no new changes or not.
+  * specify with `fritzadr` if fax numbers should be extracted from the phonebook and stored as FRITZ!Fax (fax4box) adressbook (FritzAdr.dbf)
+
+**Have a look in the [wiki](https://github.com/BlackSenator/carddav2fb/wiki) for further information!**
 
 ## Requirements
 
-  * PHP 7.0 (`apt-get install php7.0 php7.0-cli php7.0-curl php7.0-gd php7.0-mbstring php7.0-soap php7.0-xml`)
+  * PHP 7.0 (`apt-get install php7.0 php7.0-cli php7.0-curl php7.0-mbstring php7.0-soap php7.0-xml`)
   * Composer (follow the installation guide at https://getcomposer.org/download/)
 
 ## Installation
@@ -68,11 +70,11 @@ Get help for a command:
 
   * your memory (USB stick) is indexed [Heimnetz -> Speicher (NAS) -> Speicher an der FRITZ!Box]
   * ftp access is activ [Heimnetz -> Speicher (NAS) -> Heimnetzfreigabe]
-  * you use an standalone user (NOT! dslf-config) which has explicit permissions for FRITZ!Box settings, access to NAS content and read/write permission to all available memory [System -> FRITZ!Box-Benutzer -> [user] -> Berechtigungen]
+  * you use an standalone user (NOT `dslf-config`!) which has explicit permissions for FRITZ!Box settings, access to NAS content and read/write permission to all available memory [System -> FRITZ!Box-Benutzer -> [user] -> Berechtigungen]
 
 ### Precondition for using this version
 
-  * In addition to andig's version, composer.json includes two additional libraries - so if your upgrading ´composer.lock´ must be deleted and reinstalled
+  * In addition composer.json includes two additional libraries - so if your upgrading ´composer.lock´ must be deleted and reinstalled
   * the config.example.php contains additional settings - so if your upgrading be aware to include them to your config.php
 
 ## License
