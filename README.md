@@ -1,4 +1,5 @@
 # CardDAV contacts import for AVM FRITZ!Box
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=BB3W3WH7GVSNW)
 
 Purpose of the software is the (automatic) uploading of contact data from CardDAV servers as a phone book into an AVM Fritz!Box.
 
