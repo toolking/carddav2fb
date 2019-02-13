@@ -46,7 +46,7 @@ class Converter
             error_log("Contact without phone numbers will be skipped");
         }
 
-        foreach (array_chunk($allNumbers, 9) as $numbers) {
+        foreach (array_chunk($allNumbers, 9) as $idx => $numbers) {
             $this->contact = new SimpleXMLElement('<contact />');
             $this->contact->addChild('carddav_uid', $card->uid);    // reference for image upload
 
@@ -54,7 +54,7 @@ class Converter
             $this->addPhone($numbers);
 
             // add eMail
-            if (count($adresses)) {
+            if (count($adresses) && $idx == 0) {
                 $this->addEmail($adresses);
             }
 
