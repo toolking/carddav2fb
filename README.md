@@ -31,7 +31,6 @@ Install carddav2fb:
 
     git clone https://github.com/BlackSenator/carddav2fb.git
     cd carddav2fb
-    composer install --no-dev
 
 Install composer (see https://getcomposer.org/download/ for newer instructions):
 
@@ -40,7 +39,7 @@ Install composer (see https://getcomposer.org/download/ for newer instructions):
     php composer-setup.php
     php -r "unlink('composer-setup.php');"
     mv composer.phar /usr/local/bin/composer
-    composer install
+    composer install  --no-dev
 
 Edit `config.example.php` and save as `config.php` or use an other name of your choice (but than keep in mind to use the -c option to define your renamed file)
 
