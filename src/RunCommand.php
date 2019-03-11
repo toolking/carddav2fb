@@ -105,6 +105,10 @@ class RunCommand extends Command
                 unset($this->config['phonebook']['imagepath']);             // otherwise convert will set wrong links
             }
 
+            // enrich with backed-up data
+            $specialAttributes = getSpecialAttributes($recentPhonebook);
+            $filtered = setSpecialAttributes($filtered, $specialAttributes);
+            
             // fritzbox format
             $xml = export($filtered, $this->config);
             error_log(sprintf(PHP_EOL."Converted %d vCard(s)", count($filtered)));

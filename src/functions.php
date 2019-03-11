@@ -7,7 +7,7 @@ use Andig\Vcard\Parser;
 use Andig\Vcard\mk_vCard;
 use Andig\FritzBox\Converter;
 use Andig\FritzBox\Api;
-use Andig\FritzBox\TR064;
+//use Andig\FritzBox\TR064;
 use Andig\FritzAdr\convert2fa;
 use Andig\FritzAdr\fritzadr;
 use Andig\ReplyMail\replymail;
@@ -398,19 +398,77 @@ function upload(string $xml, $config)
  * @param  array config  configuration
  * @return xml           phonebook
  */
-function downloadPhonebook ($config)
+function downloadPhonebook(array $config)
 {
     $fritzbox  = $config['fritzbox'];
     $phonebook = $config['phonebook'];
-    
-    $client = new TR064($fritzbox['url'], $fritzbox['user'], $fritzbox['password']);
-    $client->getClient('x_contact', 'X_AVM-DE_OnTel:1');
-    return $client->getPhonebook($phonebook['id']);
+
+    $fritz = new Api($fritzbox['url']);
+    $fritz->setAuth($fritzbox['user'], $fritzbox['password']);
+    $fritz->mergeClientOptions($fritzbox['http'] ?? []);
+    $fritz->login();
+
+    $formfields = [
+        'PhonebookId' => $phonebook['id'],
+        'PhonebookExportName' => $phonebook['name'],
+        'PhonebookExport' => "",
+    ];
+    $result = $fritz->postFile($formfields, []); // send the command to load existing phone book
+    if (substr($result, 0, 5) !== "<?xml") {
+        error_log("ERROR: Could not load old phonebook with ID=".$config['phonebook']['id']);
+        return new SimpleXMLElement("<xml><empty /></xml>");
+    }
+    $xmlPhonebook = simplexml_load_string($result);
+    return $xmlPhonebook;
+}
+
+
+/**
+ * get quickdial and vanity attributes from given XML phone book
+ * @param   SimpleXMLElement    $xmlPhonebook
+ * @return  array 
+ */
+function getSpecialAttributes ($xml)
+{
+    $specialAttributes = [];
+
+    foreach ($xml->phonebook->contact as $contact) {
+        foreach ($contact->telephony->number as $number) {
+            if (isset($number->attributes()->quickdial) || !empty($number->attributes()->vanity)) {
+                foreach ($number->attributes() as $key => $value ) {
+                    $attributes[$key] = (string)$value;
+                }
+                $specialAttributes[(string)$contact->carddav_uid] = $attributes;
+            }
+        }
+    }
+    return $specialAttributes;
+}
+
+/**
+ * writes back previous saved quickdial and vanity attributes  
+ * @param   stdClass  $cards
+ * @param   array     $attributes
+ * @return  array 
+ */
+function setSpecialAttributes($cards, $attributes)
+{
+    foreach ($cards as $card) {
+        if (array_key_exists($card->uid, $attributes)) {
+            if (isset($attributes[$card->uid]['quickdial'])) {
+                $card->xquickdial = $attributes[$card->uid]['quickdial'];
+            }
+            if (isset($attributes[$card->uid]['vanity'])) {
+                $card->xvanity = $attributes[$card->uid]['vanity'];
+            }
+        }
+    }
+    return $cards;
 }
 
 /**
  * get the last modification timestamp of the CardDAV data base
- * It�s a little bit time consuming (> 1 sec. Per database) - but much shorter,
+ * It�s a little bit time consuming (> 1 sec. per database) - but much shorter,
  * if depending on the result the complete download can be spared
  * @return  unix timestamp
  */
@@ -421,7 +479,7 @@ function getlastmodification ($backend)
 
 /**
  * this function checked if all phone numbers from the FRITZ!Box phonebook are
- * included in the new phonebook. if not so the number(s) and type(s) resp.
+ * included in the new phonebook. If not so the number(s) and type(s) resp.
  * vip flag are compiled in a vCard and sent as a vcf file with the name as
  * filename will be send as an email attachement 
  */
