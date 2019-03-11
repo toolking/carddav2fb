@@ -7,7 +7,6 @@ use Andig\Vcard\Parser;
 use Andig\Vcard\mk_vCard;
 use Andig\FritzBox\Converter;
 use Andig\FritzBox\Api;
-//use Andig\FritzBox\TR064;
 use Andig\FritzAdr\convert2fa;
 use Andig\FritzAdr\fritzadr;
 use Andig\ReplyMail\replymail;
