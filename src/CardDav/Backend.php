@@ -104,6 +104,16 @@ class Backend
     }
 
     /**
+     * Execute progress callback
+     */
+    protected function progress()
+    {
+        if (is_callable($this->callback)) {
+            ($this->callback)();
+        }
+    }
+
+    /**
      * Get initialized http client. Improves download performance by up to x7
      *
      * @return Client
@@ -123,9 +133,38 @@ class Backend
      */
     public function getVcards(): array
     {
-        $response = $this->getCachedClient()->request('PROPFIND', $this->url);
-        $body = (string)$response->getBody();
-        return $this->processPropFindResponse($body);
+        // $response = $this->getCachedClient()->request('PROPFIND', $this->url);
+        // $body = (string)$response->getBody();
+        // $cards = $this->processPropFindResponse($body);
+
+        $response = $this->getCachedClient()->request('REPORT', $this->url, [
+            'body' => <<<EOD
+<?xml version="1.0" encoding="utf-8"?>
+<C:addressbook-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
+    <D:prop>
+        <D:getetag/>
+        <C:address-data content-type="text/vcard"/>
+    </D:prop>
+</C:addressbook-query>
+EOD
+        ]);
+
+        $cards = [];
+        $xml = new \SimpleXMLElement((string)$response->getBody());
+
+        foreach ($xml->response as $response) {
+            foreach ($response->propstat->prop as $prop) {
+                $content = (string)$prop->{'address-data'};
+
+                $vcard = $this->parseVcardFromContent($content);
+                $vcard = $this->enrichVcard($vcard);
+                $cards[] = $vcard;
+
+                $this->progress();
+            }
+        }
+
+        return $cards;
     }
 
     /**
@@ -214,17 +253,26 @@ class Backend
         $response = $this->getCachedClient()->request('GET', $this->url . $vcard_id);
 
         $body = (string)$response->getBody();
+        $vcard = $this->parseVcardFromContent($body);
+        $vcard = $this->enrichVcard($vcard);
 
+        return $vcard;
+    }
+
+    public function parseVcardFromContent(string $body): stdClass
+    {
         $parser = new Parser($body);
         $vcard = $parser->getCardAtIndex(0);
 
+        return $vcard;
+    }
+
+    public function enrichVcard(stdClass $vcard): stdClass
+    {
         if (isset($this->substitutes)) {
             foreach ($this->substitutes as $substitute) {
                 $vcard = $this->embedBase64($vcard, $substitute);
             }
-        }
-        if (is_callable($this->callback)) {
-            ($this->callback)();
         }
 
         return $vcard;
@@ -240,7 +288,6 @@ class Backend
     {
         $response = $this->cleanResponse($response);
         $xml = new \SimpleXMLElement($response);
-
         $cards = [];
 
         foreach ($xml->response as $response) {
@@ -251,6 +298,7 @@ class Backend
 
                 try {
                     $cards[] = $this->getVcard($id);
+                    $this->progress();
                 } catch (\OutOfBoundsException $e) {
                     error_log(sprintf(PHP_EOL . 'Error retrieving %s, ignoring.', $id));
                 }
