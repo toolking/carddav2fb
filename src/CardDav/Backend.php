@@ -150,7 +150,8 @@ EOD
         ]);
 
         $cards = [];
-        $xml = new \SimpleXMLElement((string)$response->getBody());
+        $body = $this->stripNamespaces((string)$response->getBody());
+        $xml = new \SimpleXMLElement($body);
 
         foreach ($xml->response as $response) {
             foreach ($response->propstat->prop as $prop) {
@@ -286,7 +287,7 @@ EOD
      */
     private function processPropFindResponse(string $response): array
     {
-        $response = $this->cleanResponse($response);
+        $response = $this->stripNamespaces($response);
         $xml = new \SimpleXMLElement($response);
         $cards = [];
 
@@ -310,18 +311,18 @@ EOD
 
     /**
      * Cleans CardDAV XML response
+     * https://stackoverflow.com/questions/1245902/remove-namespace-from-xml-using-php
      *
-     * @param   string  $response   CardDAV XML response
-     * @return  string              Cleaned CardDAV XML response
+     * @param   string  $xml   CardDAV XML response
+     * @return  string         Cleaned CardDAV XML response
      */
-    private function cleanResponse($response)
+    private function stripNamespaces($xml)
     {
-        $response = utf8_encode($response);
-        $response = str_replace('D:', '', $response);
-        $response = str_replace('d:', '', $response);
-        $response = str_replace('C:', '', $response);
-        $response = str_replace('c:', '', $response);
+        // Gets rid of all namespace definitions
+        $xml = preg_replace('/xmlns[^=]*="[^"]*"/i', '', $xml);
+        // Gets rid of all namespace references
+        $xml = preg_replace('/(<\/*)[^>:]+:/', '$1', $xml);
 
-        return $response;
+        return $xml;
     }
 }
