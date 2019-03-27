@@ -79,6 +79,12 @@ Get help for a command:
   * In addition composer.json includes two additional libraries - so if your upgrading ´composer.lock´ must be deleted and reinstalled
   * the config.example.php contains additional settings - so if your upgrading be aware to include them to your config.php
 
+## Debugging
+
+For debugging please set your config.php to
+
+    'http' => 'debug' => true
+
 ## License
 This script is released under Public Domain, some parts under GNU AGPL or MIT license. Make sure you understand which parts are which.
 
