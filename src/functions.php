@@ -7,6 +7,7 @@ use Andig\Vcard\Parser;
 use Andig\Vcard\mk_vCard;
 use Andig\FritzBox\Converter;
 use Andig\FritzBox\Api;
+use Andig\FritzBox\TR064;
 use Andig\FritzAdr\convert2fa;
 use Andig\FritzAdr\fritzadr;
 use Andig\ReplyMail\replymail;
@@ -315,11 +316,11 @@ function filterMatches($attribute, $filterValues): bool
  *
  * @param array $cards
  * @param array $conversions
- * @return SimpleXMLElement
+ * @return SimpleXMLElement     the XML phone book in Fritz Box format
  */
-function export(array $cards, array $conversions): SimpleXMLElement
+function exportPhonebook(array $cards, array $conversions): SimpleXMLElement
 {
-    $xml = new SimpleXMLElement(
+    $xmlPhonebook = new SimpleXMLElement(
         <<<EOT
 <?xml version="1.0" encoding="UTF-8"?>
 <phonebooks>
@@ -328,7 +329,7 @@ function export(array $cards, array $conversions): SimpleXMLElement
 EOT
     );
 
-    $root = $xml->xpath('//phonebook')[0];
+    $root = $xmlPhonebook->xpath('//phonebook')[0];
     $root->addAttribute('name', $conversions['phonebook']['name']);
 
     $converter = new Converter($conversions);
@@ -339,7 +340,7 @@ EOT
             xml_adopt($root, $contact);
         }
     }
-    return $xml;
+    return $xmlPhonebook;
 }
 
 /**
@@ -360,11 +361,11 @@ function xml_adopt(SimpleXMLElement $to, SimpleXMLElement $from)
 /**
  * Upload cards to fritzbox
  *
- * @param string $xml
- * @param array $config
+ * @param SimpleXMLElement  $xmlPhonebook
+ * @param array             $config
  * @return void
  */
-function upload(string $xml, $config)
+function uploadPhonebook(SimpleXMLElement $xmlPhonebook, array $config)
 {
     $options = $config['fritzbox'];
 
@@ -372,6 +373,17 @@ function upload(string $xml, $config)
     $fritz->setAuth($options['user'], $options['password']);
     $fritz->mergeClientOptions($options['http'] ?? []);
     $fritz->login();
+
+    if (!phoneNumberAttributesSet($xmlPhonebook)) {
+        $xmlOldPhoneBook = downloadPhonebook($fritz, $config);
+        if ($xmlOldPhoneBook) {
+            $attributes = getPhoneNumberAttributes($xmlOldPhoneBook);
+            $xmlPhonebook = mergePhoneNumberAttributes($xmlPhonebook, $attributes);
+        }
+    } else {
+        error_log("Note: Skipping automatic restore of quickdial/vanity attributes.");
+        error_log("      Are you using X-FB-QUICKDIAL/X-FB-VANITY CardDav extensions?");
+    }
 
     $formfields = [
         'PhonebookId' => $config['phonebook']['id']
@@ -381,41 +393,35 @@ function upload(string $xml, $config)
         'PhonebookImportFile' => [
             'type' => 'text/xml',
             'filename' => 'updatepb.xml',
-            'content' => $xml,
+            'content' => $xmlPhonebook->asXML(), // convert XML object to XML string
         ]
     ];
 
-    $result = $fritz->postFile($formfields, $filefields); // send the command
-
+    $result = $fritz->postFile($formfields, $filefields); // send the command to store new phonebook
     if (strpos($result, 'Das Telefonbuch der FRITZ!Box wurde wiederhergestellt') === false) {
         throw new \Exception('Upload failed');
     }
 }
 
+
 /**
- * download the current phonebook from the FRITZ!Box
- * @param  array config  configuration
- * @return xml           phonebook
+ * Downloads the phone book from Fritzbox
+ *
+ * @param   Api   $fritz
+ * @param   array $config
+ * @return  SimpleXMLElement|bool with the old existing phonebook
  */
-function downloadPhonebook(array $config)
+function downloadPhonebook(Api $fritz, array $config)
 {
-    $fritzbox  = $config['fritzbox'];
-    $phonebook = $config['phonebook'];
-
-    $fritz = new Api($fritzbox['url']);
-    $fritz->setAuth($fritzbox['user'], $fritzbox['password']);
-    $fritz->mergeClientOptions($fritzbox['http'] ?? []);
-    $fritz->login();
-
     $formfields = [
-        'PhonebookId' => $phonebook['id'],
-        'PhonebookExportName' => $phonebook['name'],
+        'PhonebookId' => $config['phonebook']['id'],
+        'PhonebookExportName' => $config['phonebook']['name'],
         'PhonebookExport' => "",
     ];
     $result = $fritz->postFile($formfields, []); // send the command to load existing phone book
     if (substr($result, 0, 5) !== "<?xml") {
-        error_log("ERROR: Could not load old phonebook with ID=".$config['phonebook']['id']);
-        return new SimpleXMLElement("<xml><empty /></xml>");
+        error_log("ERROR: Could not load phonebook with ID=".$config['phonebook']['id']);
+        return false;
     }
     $xmlPhonebook = simplexml_load_string($result);
     return $xmlPhonebook;
@@ -423,55 +429,107 @@ function downloadPhonebook(array $config)
 
 
 /**
- * get quickdial and vanity attributes from given XML phone book
- * @param   SimpleXMLElement    $xmlPhonebook
- * @return  array 
+ * Get quickdial and vanity special attributes from given XML phone book
+ *
+ * @param   SimpleXMLElement                $xmlPhonebook
+ * @return  array|array<string, object>     [] or map with {phonenumber@CardDavUID}=>SimpleXMLElement-Attributes
  */
-function getSpecialAttributes ($xml)
+function getPhoneNumberAttributes(SimpleXMLElement $xmlPhonebook)
 {
-    $specialAttributes = [];
+    if (!property_exists($xmlPhonebook, "phonebook")) {
+        return [];
+    }
 
-    foreach ($xml->phonebook->contact as $contact) {
+    $specialAttributes = [];
+    foreach ($xmlPhonebook->phonebook->contact as $contact) {
         foreach ($contact->telephony->number as $number) {
-            if (isset($number->attributes()->quickdial) || !empty($number->attributes()->vanity)) {
-                foreach ($number->attributes() as $key => $value ) {
-                    $attributes[$key] = (string)$value;
-                }
-                $specialAttributes[(string)$contact->carddav_uid] = $attributes;
+            if ((isset($number->attributes()->quickdial) && $number->attributes()->quickdial >= 0)
+                || (isset($number->attributes()->vanity) && $number->attributes()->vanity != "")) {
+                $key = generateUniqueKey($number, $contact->carddav_uid);
+                $specialAttributes[$key] = $number->attributes();
             }
         }
     }
     return $specialAttributes;
 }
 
+
 /**
- * writes back previous saved quickdial and vanity attributes  
- * @param   stdClass  $cards
- * @param   array     $attributes
- * @return  array 
+ * Restore special attributes (quickdial, vanity) in given target phone book
+ *
+ * @param   SimpleXMLElement    $xmlTargetPhoneBook
+ * @param   array               $attributes [] or map key => attributes
+ * @return  SimpleXMLElement    phonebook with restored special attributes
  */
-function setSpecialAttributes($cards, $attributes)
+function mergePhoneNumberAttributes(SimpleXMLElement $xmlTargetPhoneBook, array $attributes)
 {
-    foreach ($cards as $card) {
-        if (array_key_exists($card->uid, $attributes)) {
-            if (isset($attributes[$card->uid]['quickdial'])) {
-                $card->xquickdial = $attributes[$card->uid]['quickdial'];
-            }
-            if (isset($attributes[$card->uid]['vanity'])) {
-                $card->xvanity = $attributes[$card->uid]['vanity'];
+    if (!$attributes) {
+        return $xmlTargetPhoneBook;
+    }
+    error_log("Restoring old special attributes (quickdial, vanity)".PHP_EOL);
+    foreach ($xmlTargetPhoneBook->phonebook->contact as $contact) {
+        foreach ($contact->telephony->number as $number) {
+            $key = generateUniqueKey($number, $contact->carddav_uid);
+            if (array_key_exists($key, $attributes)) {
+                foreach (['quickdial','vanity'] as $attribute) {
+                    if (property_exists($attributes[$key], $attribute)) {
+                        $number[$attribute] = (string)$attributes[$key]->$attribute;
+                    }
+                }
             }
         }
     }
-    return $cards;
+    return $xmlTargetPhoneBook;
+}
+
+
+/**
+ * Build unique key with normalized phone number to lookup phonebook attributes
+ * normalizing number means: remove all non-"+" and non-number characters like SPACE, MINUS, SLASH...
+ *
+ * @param   string  $number
+ * @param   string  $carddav_uid
+ * @return  string  format: {normalized-phone-number}@{vCard UUID}
+ */
+function generateUniqueKey(string $number, string $carddav_uid)
+{
+    return preg_replace("/[^\+0-9]/", "", $number)."@".$carddav_uid;
+}
+
+
+/**
+ * Check if special attributes already set (e.g., via CardDav extension 'X-FB-QUICKDIAL' / 'X-FB-VANITY')
+ *
+ * @param   SimpleXMLElement    $xmlPhonebook
+ * @return  boolean             true if any element already has a special attribute set
+ */
+function phoneNumberAttributesSet(SimpleXMLElement $xmlPhonebook)
+{
+    if (!property_exists($xmlPhonebook, "phonebook")) {
+        return false;
+    }
+    foreach ($xmlPhonebook->phonebook->contact as $contact) {
+        foreach ($contact->telephony->number as $number) {
+            if (property_exists($number->attributes(), "quickdial")
+                || property_exists($number->attributes(), "vanity")) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 /**
+ * begin of insert branch next
+ */
+
+/**
  * get the last modification timestamp of the CardDAV data base
- * It�s a little bit time consuming (> 1 sec. per database) - but much shorter,
+ * It's a little bit time consuming (> 1 sec. per database) - but much shorter,
  * if depending on the result the complete download can be spared
  * @return  unix timestamp
  */
-function getlastmodification ($backend)
+function getLastModification ($backend)
 {
     return $backend->getModDate();
 }
@@ -482,34 +540,33 @@ function getlastmodification ($backend)
  * vip flag are compiled in a vCard and sent as a vcf file with the name as
  * filename will be send as an email attachement 
  */
-function checkUpdates ($xmlOld, $xmlNew, $config) {
-    
-    // initialize return value
+function checkUpdates ($oldPhonebook, $newPhonebook, $config)
+
+{
     $i = 0;
 
-    if (!isset($config['reply']))
+    if (!isset($config['reply'])) {
         return $i;
-    
-    // values from config for recursiv vCard assembling
-    $phonebook = $config['phonebook'];
-    $reply     = $config['reply'];
-    // set instance    
-    $card   = new mk_vCard ();
+    }
+    else {
+        $reply = $config['reply'];
+    }
+
+    $card    = new mk_vCard ();
     $eMailer = new replymail ($reply);
-    // set container variable
     $numbers = [];
-        
+    
     // check if entries are not included in the intended upload
-    foreach ($xmlOld->phonebook->contact as $contact) {
+    foreach ($oldPhonebook->phonebook->contact as $contact) {
         $x = -1;
-        $numbers = [];                                                          // container for n-1 new numbers per contact
+        $numbers = [];                                                        // container for n-1 new numbers per contact
         foreach ($contact->telephony->number as $number) {
             if ((substr($number, 0, 1) == '*') || (substr($number, 0, 1) == '#')) {  // skip internal numbers
                 continue;
             }
             $querystr = sprintf('//telephony[number = "%s"]', (string)$number);    // assemble search string
-            if (!$DataObjects = $xmlNew->xpath($querystr)) {                   // not found in upload = new entry! 
-                $x++;                                                          // possible n+1 new/additional numbers
+            if (!$DataObjects = $newPhonebook->xpath($querystr)) {                 // not found in upload = new entry! 
+                $x++;                                                              // possible n+1 new/additional numbers
                 $numbers[$x][0] = (string)$number['type'];
                 $numbers[$x][1] = (string)$number;
             }
@@ -522,12 +579,29 @@ function checkUpdates ($xmlOld, $xmlNew, $config) {
             // assemble vCard from new entry(s)
             $new_vCard = $card->createVCard($name, $numbers, $email, $vip);  
             // send new entry as vCard to designated reply adress
-            IF ($eMailer->sendReply($phonebook['name'], $new_vCard, $name . '.vcf')) {    
+            if ($eMailer->sendReply($config['phonebook']['name'], $new_vCard, $name . '.vcf')) {    
                 $i++;
             }
         }
     }
     return $i;
+}
+
+/**
+ * Downloads the phone book from Fritzbox via TR-064
+ * Unfortunately, only this export will deliver the timestamp of the last change
+ * @param   array             $config
+ * @return  SimpleXMLElement  phonebook
+ */
+function downloadPhonebookSOAP ($config)
+{
+    $fritzbox = $config['fritzbox'];
+    $phonebook = $config ['phonebook'];
+
+    $client = new TR064 ($fritzbox['url'], $fritzbox['user'], $fritzbox['password']);
+    $client->getClient('x_contact', 'X_AVM-DE_OnTel:1');
+    $result = $client->getPhonebook($phonebook['id']);
+    return $result;
 }
 
 /**
@@ -542,20 +616,24 @@ function uploadFritzAdr ($xml, $config)
     $fritzbox = $config['fritzbox'];
     
     // Prepare FTP connection
-    $ftpserver = $fritzbox['url'];
-    $ftpserver = str_replace("http://", "", $ftpserver);    // config.example.php has http:// which breaks FTP connect
-    $ftp_conn = ftp_connect($ftpserver);
-    if (!$ftp_conn) {
-        error_log(PHP_EOL."ERROR: Could not connect to ftp server ".$ftpserver." for FRITZ!adr upload.");
-        return false;
-    }  
+    $ftpserver = parse_url($fritzbox['url'], PHP_URL_HOST) ? parse_url($fritzbox['url'], PHP_URL_HOST) : $fritzbox['url'];
+    $connectFunc = (@$fritzbox['plainFTP']) ? 'ftp_connect' : 'ftp_ssl_connect';
+
+    if ($connectFunc == 'ftp_ssl_connect' && !function_exists('ftp_ssl_connect')) {
+        throw new \Exception("PHP lacks support for 'ftp_ssl_connect', please use `plainFTP` to switch to unencrypted FTP.");
+    }
+
+    if (false === ($ftp_conn = $connectFunc($ftpserver))) {
+        throw new \Exception("Could not connect to ftp server ".$ftpserver." for FRITZ!adr upload.");
+    }
     if (!ftp_login($ftp_conn, $fritzbox['user'], $fritzbox['password'])) {
-        error_log(PHP_EOL."ERROR: Could not log in ".$config['user']." to ftp server ".$ftpserver." for FRITZ!adr upload.");
-        return false;
+        throw new \Exception("Could not log in ".$fritzbox['user']." to ftp server ".$ftpserver." for FRITZ!adr upload.");
+    }
+    if (!ftp_pasv($ftp_conn, true)) {
+        throw new \Exception("Could not switch to passive mode on ftp server ".$ftpserver." for FRITZ!adr upload.");
     }
     if (!ftp_chdir($ftp_conn, $fritzbox['fritzadr'])) {
-        error_log(PHP_EOL."ERROR: Could not change to dir ".$fritzbox['fritzadr']." on ftp server ".$ftpserver." for FRITZ!adr upload.");
-        return false;
+        throw new \Exception("Could not change to dir ".$fritzbox['fritzadr']." on ftp server ".$ftpserver." for FRITZ!adr upload.");
     }
 
     $memstream = fopen('php://memory', 'r+');                  // open a fast in-memory file stream

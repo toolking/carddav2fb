@@ -245,11 +245,15 @@ class Backend
 
         foreach ($xml->response as $response) {
             if ((preg_match('/vcard/', $response->propstat->prop->getcontenttype) || preg_match('/vcf/', $response->href)) &&
-              !$response->propstat->prop->resourcetype->collection) {
+            !$response->propstat->prop->resourcetype->collection) {
                 $id = basename($response->href);
                 $id = str_replace($this->vcard_extension, '', $id);
 
-                $cards[] = $this->getVcard($id);
+                try {
+                    $cards[] = $this->getVcard($id);
+                } catch (\OutOfBoundsException $e) {
+                    error_log(sprintf(PHP_EOL . 'Error retrieving %s, ignoring.', $id));
+                }
             }
         }
 
@@ -278,17 +282,14 @@ class Backend
      */
     public function getModDate ()
     {            
-        $response = $this->query($this->url, 'PROPFIND');
-        if (in_array($response->getStatusCode(), [200,207])) {
-            $body = new \SimpleXMLElement((string)$response->getBody());
-            foreach ($body->response->propstat->prop as $prop) {
-                IF ($prop->resourcetype->collection) {
-                    return strtotime($prop->getlastmodified);
-                    break;
-                }
+        $response = $this->getCachedClient()->request('PROPFIND', $this->url);
+        $body = new \SimpleXMLElement((string)$response->getBody());
+        foreach ($body->response->propstat->prop as $prop) {
+            IF ($prop->resourcetype->collection) {
+                return strtotime($prop->getlastmodified);
+                break;
             }
         }
-        throw new \Exception('Received HTTP ' . $response->getStatusCode());
     }
-    
+
 }

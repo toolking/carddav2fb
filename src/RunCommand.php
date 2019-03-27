@@ -31,30 +31,33 @@ class RunCommand extends Command
         if ($input->getOption('image')) {
             $this->uploadImagePreconditions($this->config['fritzbox'], $this->config['phonebook']);
         }
-
-        // compare timestamp of CardDAV against last update on Fritz!Box
-        $lastupdate = 0;
-        $latestmod  = 0;
-        $recentPhonebook = downloadPhonebook ($this->config);           // is needed for forecedupload > 1 as well
+        
+        /**
+          * begin of insert branch next
+          * compare timestamp of CardDAV against last update on Fritz!Box
+          */
+        $lastUpdate = 0;
+        $latestMod  = 0;
+        $recentPhonebook = downloadPhonebookSOAP($this->config);           // is needed for forecedupload > 1 as well
 
         if ($this->config['phonebook']['forcedupload'] < 2) {
             error_log("Determine the last change of the FRITZ!Box phonebook");
-            // date_default_timezone_set('CET');
-            $lastupdate = $recentPhonebook->phonebook->timestamp;       // get timestamp from phonebook
+            $lastUpdate = $recentPhonebook->phonebook->timestamp;          // get timestamp from phonebook
             error_log("Determine the last change(s) on the CardDAV server(s)");            
 
-            foreach ($this->config['server'] as $server) {              // determine the youngest modification date
+            foreach ($this->config['server'] as $server) {                 // determine the youngest modification date
                 $backend = backendProvider($server);
-                $timeCache = getlastmodification ($backend);
-                if ($timeCache > $latestmod) {
-                    $latestmod = $timeCache;
+                $timeCache = getLastModification ($backend);
+                if ($timeCache > $latestMod) {
+                    $latestMod = $timeCache;
                 }
             }
         }
-        if ($lastupdate > $latestmod) {
-            error_log("Your Fritz!Box phonebook is more recent than the contacts on the CardDAV server");
+        if ($lastUpdate > $latestMod) {
+            error_log("Your Fritz!Box phonebook is newer than the contacts on the CardDAV server");
         }
         else {
+            // end of insert branch next
             $quantity = 0;
             $vcards = [];
             $xcards = [];
@@ -105,36 +108,39 @@ class RunCommand extends Command
                 unset($this->config['phonebook']['imagepath']);             // otherwise convert will set wrong links
             }
 
-            // enrich with backed-up data
-            $specialAttributes = getSpecialAttributes($recentPhonebook);
-            $filtered = setSpecialAttributes($filtered, $specialAttributes);
-            
             // fritzbox format
-            $xml = export($filtered, $this->config);
+            $xmlPhonebook = exportPhonebook($filtered, $this->config);
             error_log(sprintf(PHP_EOL."Converted %d vCard(s)", count($filtered)));
-
             if (!count($filtered)) {
                 error_log("Phonebook empty - skipping upload");
                 return null;
             }
-
             // upload
             error_log("Uploading");
-
-            $xmlStr = $xml->asXML();
-
-            upload($xmlStr, $this->config);
+            uploadPhonebook($xmlPhonebook, $this->config);
             error_log("Successful uploaded new Fritz!Box phonebook");
+            
+            /**
+              *  begin of insert branch next
+              * fax number upload
+              */
+            if ($this->config['phonebook']['forcedupload'] < 3) {
+                error_log('Checking to back up newer contacts of the Fritz!Box');
+                $i = checkUpdates($recentPhonebook, $xmlPhonebook, $this->config);
+                if ($i) {
+                    error_log(sprintf("Saved %d contact(s)", $i));
+                }
+            }
 
-            // fax number upload
             if (isset($this->config['fritzbox']['fritzadr'])) {
-                error_log("Selecting and uploading fax number(s) for FRITZ!fax");
-                $i = uploadFritzAdr($xml, $this->config);
+                error_log('Selecting and uploading fax number(s) for FRITZ!fax');
+                $i = uploadFritzAdr($xmlPhonebook, $this->config);
                 if ($i) {
                     error_log(sprintf("Uploaded %d fax number entries into fritzadr.dbf", $i));
                 }
             }
         }
+        // end of insert branch next
     }
     /**
      * checks if preconditions for upload images are OK

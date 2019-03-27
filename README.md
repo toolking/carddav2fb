@@ -13,6 +13,9 @@ This is an extendeded version of https://github.com/andig/carddav2fb which is an
   * if more than nine phone numbers are included, the contact will be divided into a corresponding number of phonebook entries (any existing email addresses are assigned to the first set [there is no quantity limit!])
   * phone numbers are sorted by type. The order of the conversion values ('phoneTypes') determines the order in the phone book entry
   * the contact's UID of the CardDAV server is added to the phonebook entry (not visible in the FRITZ! Box GUI)
+  * Automatically preserves QuickDial and Vanity attributes of phone numbers
+    set in FRITZ!Box Web GUI. Works without config. (Hint: If you used the
+    old way of configuring your CardDav server with X-FB-QUICKDIAL /X-FB-VANITY, then your old config is respected and this new automatic feature is skipped).
 
   Additonal with this version (fork):
   * specify with `forcedupload` whether the phone book should be overwritten, or if phone numbers that are not included in the upload are to be saved as vcf by e-mail (see wiki for handling details). Last but not least: whether a download from the CardDAV server should be made if there are no new changes or not.

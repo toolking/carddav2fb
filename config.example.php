@@ -6,11 +6,11 @@ $config = [
         'id'        => 0,                                              // only "0" can store quickdial and vanity numbers
         'name'      => 'Telefonbuch',
         'imagepath' => 'file:///var/InternerSpeicher/[YOURUSBSTICK]/FRITZ/fonpix/', // mandatory if you use the -i option
-        'forcedupload' => 1,        // 3 = CardDAV contacts overwrite phonebook on Fritz!Box
+        'forcedupload' => 3,        // 3 = CardDAV contacts overwrite phonebook on Fritz!Box
     ],                              // 2 = like 3, but newer entries will send as VCF via eMail (-> reply)
                                     // 1 = like 2, but vCards are only downloaded if they are newer than the phonebook
 
-    // or server
+    // server
     'server' => [
         [
             'url' => 'https://...',
@@ -21,26 +21,26 @@ $config = [
                 // 'auth' => 'digest', // uncomment for digest auth
             ]
         ],
-/* add as many as you need
+        /* add as many as you need
         [
             'url' => 'https://...',
             'user' => '',
             'password' => '',
         ],
-*/
+        */
     ],
 
-    // or fritzbox
+    // fritzbox
     'fritzbox' => [
         'url' => 'http://fritz.box',
         'user' => '',
         'password' => '',
-        'fonpix'   => '/[YOURUSBSTICK]/FRITZ/fonpix',   // the storage on your usb stick for uploading images
-        'fritzadr' => '/[YOURUSBSTICK]/FRITZ/mediabox'           // if not empty FRITZadr will be written to this location
-        'http' => [           // http client options are directly passed to Guzzle http client
-            // 'verify' => false, // uncomment to disable certificate check
+        'fonpix'   => '/[YOURUSBSTICK]/FRITZ/fonpix',     // the storage on your usb stick for uploading images
+        'fritzadr' => '/[YOURUSBSTICK]/FRITZ/mediabox',   // if not empty FRITZadr will be written to this location
+        'http' => [],                                     // http client options are directly passed to Guzzle http client
+                                                          // 'verify' => false, // uncomment to disable certificate check
         ],
-        'plainFTP' => false, // set true to use FTP instead of FTPS e.g. on Windows
+        'plainFTP' => false,                              // set true to use FTP instead of FTPS e.g. on Windows
     ],
 
     /*
@@ -58,8 +58,7 @@ $config = [
     */
 
     'filters' => [
-        'include' => [
-            // if empty include all by default
+        'include' => [                           // if empty include all by default
         ],
 
         'exclude' => [
