@@ -5,6 +5,7 @@ namespace Andig\CardDav;
 use Andig\Http\ClientTrait;
 use Andig\Vcard\Parser;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
 use \stdClass;
 
 /**
@@ -104,6 +105,16 @@ class Backend
     }
 
     /**
+     * Execute progress callback
+     */
+    protected function progress()
+    {
+        if (is_callable($this->callback)) {
+            ($this->callback)();
+        }
+    }
+
+    /**
      * Get initialized http client. Improves download performance by up to x7
      *
      * @return Client
@@ -123,9 +134,50 @@ class Backend
      */
     public function getVcards(): array
     {
-        $response = $this->getCachedClient()->request('PROPFIND', $this->url);
-        $body = (string)$response->getBody();
-        return $this->processPropFindResponse($body);
+        try {
+            $response = $this->getCachedClient()->request('REPORT', $this->url, [
+                'body' => <<<EOD
+<?xml version="1.0" encoding="utf-8"?>
+<C:addressbook-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
+    <D:prop>
+        <D:getetag/>
+        <C:address-data content-type="text/vcard"/>
+    </D:prop>
+</C:addressbook-query>
+EOD
+            ]);
+        } catch (RequestException $e) {
+            if ($e->hasResponse() && 404 == $e->getResponse()->getStatusCode()) {
+                error_log('Ignoring empty response from carddav REPORT request');
+                return [];
+            }
+
+            // bubble anything else
+            throw $e;
+        }
+
+        $cards = [];
+        $body = $this->stripNamespaces((string)$response->getBody());
+        $xml = new \SimpleXMLElement($body);
+
+        // NOTE: instead of stripping the namespaces they could also be queried using xpath:
+        // $xml->registerXPathNamespace('dav', 'DAV:');
+        // $xml->registerXPathNamespace('card', 'urn:ietf:params:xml:ns:carddav');
+        // $xml->xpath('//dav:response/dav:propstat/dav:prop/card:address-data');
+
+        foreach ($xml->response as $response) {
+            foreach ($response->propstat->prop as $prop) {
+                $content = (string)$prop->{'address-data'};
+
+                $vcard = $this->parseVcardFromContent($content);
+                $vcard = $this->enrichVcard($vcard);
+                $cards[] = $vcard;
+
+                $this->progress();
+            }
+        }
+
+        return $cards;
     }
 
     /**
@@ -214,66 +266,45 @@ class Backend
         $response = $this->getCachedClient()->request('GET', $this->url . $vcard_id);
 
         $body = (string)$response->getBody();
+        $vcard = $this->parseVcardFromContent($body);
+        $vcard = $this->enrichVcard($vcard);
 
+        return $vcard;
+    }
+
+    public function parseVcardFromContent(string $body): stdClass
+    {
         $parser = new Parser($body);
         $vcard = $parser->getCardAtIndex(0);
 
+        return $vcard;
+    }
+
+    public function enrichVcard(stdClass $vcard): stdClass
+    {
         if (isset($this->substitutes)) {
             foreach ($this->substitutes as $substitute) {
                 $vcard = $this->embedBase64($vcard, $substitute);
             }
-        }
-        if (is_callable($this->callback)) {
-            ($this->callback)();
         }
 
         return $vcard;
     }
 
     /**
-     * Process CardDAV XML response
-     *
-     * @param   string  $response           CardDAV XML response
-     * @return  stdClass[]                  Parsed Vcards from CardDAV XML response
-     */
-    private function processPropFindResponse(string $response): array
-    {
-        $response = $this->cleanResponse($response);
-        $xml = new \SimpleXMLElement($response);
-
-        $cards = [];
-
-        foreach ($xml->response as $response) {
-            if ((preg_match('/vcard/', $response->propstat->prop->getcontenttype) || preg_match('/vcf/', $response->href)) &&
-            !$response->propstat->prop->resourcetype->collection) {
-                $id = basename($response->href);
-                $id = str_replace($this->vcard_extension, '', $id);
-
-                try {
-                    $cards[] = $this->getVcard($id);
-                } catch (\OutOfBoundsException $e) {
-                    error_log(sprintf(PHP_EOL . 'Error retrieving %s, ignoring.', $id));
-                }
-            }
-        }
-
-        return $cards;
-    }
-
-    /**
      * Cleans CardDAV XML response
+     * https://stackoverflow.com/questions/1245902/remove-namespace-from-xml-using-php
      *
-     * @param   string  $response   CardDAV XML response
-     * @return  string              Cleaned CardDAV XML response
+     * @param   string  $xml   CardDAV XML response
+     * @return  string         Cleaned CardDAV XML response
      */
-    private function cleanResponse($response)
+    private function stripNamespaces($xml)
     {
-        $response = utf8_encode($response);
-        $response = str_replace('D:', '', $response);
-        $response = str_replace('d:', '', $response);
-        $response = str_replace('C:', '', $response);
-        $response = str_replace('c:', '', $response);
+        // Gets rid of all namespace definitions
+        $xml = preg_replace('/xmlns[^=]*="[^"]*"/i', '', $xml);
+        // Gets rid of all namespace references
+        $xml = preg_replace('/(<\/*)[^>:]+:/', '$1', $xml);
 
-        return $response;
+        return $xml;
     }
 }
