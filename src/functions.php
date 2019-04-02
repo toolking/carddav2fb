@@ -633,30 +633,12 @@ function downloadPhonebookSOAP ($config)
  */
 function uploadFritzAdr ($xml, $config)
 {   
-    $fritzbox = $config['fritzbox'];
-    
     // Prepare FTP connection
-    $ftpserver = parse_url($fritzbox['url'], PHP_URL_HOST) ? parse_url($fritzbox['url'], PHP_URL_HOST) : $fritzbox['url'];
-    $connectFunc = (@$fritzbox['plainFTP']) ? 'ftp_connect' : 'ftp_ssl_connect';
+    $secure = @$config['plainFTP'] ? $config['plainFTP'] : false;
+    $ftp_conn = getFtpConnection($config['url'], $config['user'], $config['password'], $config['fonpix'], $secure);
 
-    if ($connectFunc == 'ftp_ssl_connect' && !function_exists('ftp_ssl_connect')) {
-        throw new \Exception("PHP lacks support for 'ftp_ssl_connect', please use `plainFTP` to switch to unencrypted FTP.");
-    }
-
-    if (false === ($ftp_conn = $connectFunc($ftpserver))) {
-        throw new \Exception("Could not connect to ftp server ".$ftpserver." for FRITZ!adr upload.");
-    }
-    if (!ftp_login($ftp_conn, $fritzbox['user'], $fritzbox['password'])) {
-        throw new \Exception("Could not log in ".$fritzbox['user']." to ftp server ".$ftpserver." for FRITZ!adr upload.");
-    }
-    if (!ftp_pasv($ftp_conn, true)) {
-        throw new \Exception("Could not switch to passive mode on ftp server ".$ftpserver." for FRITZ!adr upload.");
-    }
-    if (!ftp_chdir($ftp_conn, $fritzbox['fritzadr'])) {
-        throw new \Exception("Could not change to dir ".$fritzbox['fritzadr']." on ftp server ".$ftpserver." for FRITZ!adr upload.");
-    }
-
-    $memstream = fopen('php://memory', 'r+');                  // open a fast in-memory file stream
+    // open a fast in-memory file stream
+    $memstream = fopen('php://memory', 'r+');
     $converter = new convert2fa();                             
     $faxContacts = $converter->convert($xml);                  // extracting 
     $numRecords = count($faxContacts); 

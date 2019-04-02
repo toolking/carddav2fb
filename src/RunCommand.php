@@ -134,7 +134,7 @@ class RunCommand extends Command
 
             if (isset($this->config['fritzbox']['fritzadr'])) {
                 error_log('Selecting and uploading fax number(s) for FRITZ!fax');
-                $i = uploadFritzAdr($xmlPhonebook, $this->config);
+                $i = uploadFritzAdr($xmlPhonebook, $this->config['fritzbox']);
                 if ($i) {
                     error_log(sprintf("Uploaded %d fax number entries into fritzadr.dbf", $i));
                 }
