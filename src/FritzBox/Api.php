@@ -82,6 +82,25 @@ class Api
     }
 
     /**
+     * image upload to FRITZ!Box. Guzzle's multipart option does not work on
+     * this interface. If this changes, this function can be deleted
+     *
+     * @param string $body
+     * @return string POST result
+     * @throws \Exception
+     */
+    public function postImage($body): string
+    {
+        $url = $this->url . '/cgi-bin/firmwarecfg';
+
+        $resp = $this->getClient()->request('POST', $url, [
+            'body' => $body,
+        ]);
+
+        return (string)$resp->getBody();
+    }
+
+    /**
      * Login, throws on failure
      *
      * @throws \Exception

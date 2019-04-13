@@ -7,6 +7,7 @@ use Andig\Vcard\Parser;
 use Andig\Vcard\mk_vCard;
 use Andig\FritzBox\Converter;
 use Andig\FritzBox\Api;
+use Andig\FritzBox\BackgroundImage;
 use Andig\FritzBox\TR064;
 use Andig\FritzAdr\convert2fa;
 use Andig\FritzAdr\fritzadr;
@@ -55,7 +56,7 @@ function download(Backend $backend, $substitutes, callable $callback=null): arra
  * @param string $password
  * @param string $directory
  * @param boolean $secure
- * @return mixed false or stream of ftp connection 
+ * @return mixed false or stream of ftp connection
  */
 function getFtpConnection($url, $user, $password, $directory, $secure)
 {
@@ -108,7 +109,7 @@ function uploadImages(array $vcards, array $config, array $phonebook, callable $
     // Prepare FTP connection
     $secure = @$config['plainFTP'] ? $config['plainFTP'] : false;
     $ftp_conn = getFtpConnection($config['url'], $config['user'], $config['password'], $config['fonpix'], $secure);
-    
+
     // Build up dictionary to look up UID => current FTP image file
     if (false === ($ftpFiles = ftp_nlist($ftp_conn, "."))) {
         $ftpFiles = [];
@@ -395,7 +396,7 @@ function uploadPhonebook(SimpleXMLElement $xmlPhonebook, array $config)
     $fritz->login();
 
     if (!phoneNumberAttributesSet($xmlPhonebook)) {
-        $xmlOldPhoneBook = downloadPhonebook($fritz, $config);
+        $xmlOldPhoneBook = downloadPhonebook($options, $config['phonebook']);
         if ($xmlOldPhoneBook) {
             $attributes = getPhoneNumberAttributes($xmlOldPhoneBook);
             $xmlPhonebook = mergePhoneNumberAttributes($xmlPhonebook, $attributes);
@@ -427,23 +428,30 @@ function uploadPhonebook(SimpleXMLElement $xmlPhonebook, array $config)
 /**
  * Downloads the phone book from Fritzbox
  *
- * @param   Api   $fritz
- * @param   array $config
+ * @param   array $fritzbox
+ * @param   array $phonebook
  * @return  SimpleXMLElement|bool with the old existing phonebook
  */
-function downloadPhonebook(Api $fritz, array $config)
+function downloadPhonebook(array $fritzbox, array $phonebook)
 {
+
+    $fritz = new Api($fritzbox['url']);
+    $fritz->setAuth($fritzbox['user'], $fritzbox['password']);
+    $fritz->mergeClientOptions($fritzbox['http'] ?? []);
+    $fritz->login();
+
     $formfields = [
-        'PhonebookId' => $config['phonebook']['id'],
-        'PhonebookExportName' => $config['phonebook']['name'],
+        'PhonebookId' => $phonebook['id'],
+        'PhonebookExportName' => $phonebook['name'],
         'PhonebookExport' => "",
     ];
     $result = $fritz->postFile($formfields, []); // send the command to load existing phone book
     if (substr($result, 0, 5) !== "<?xml") {
-        error_log("ERROR: Could not load phonebook with ID=".$config['phonebook']['id']);
+        error_log("ERROR: Could not load phonebook with ID=".$phonebook['id']);
         return false;
     }
     $xmlPhonebook = simplexml_load_string($result);
+
     return $xmlPhonebook;
 }
 
@@ -537,6 +545,53 @@ function phoneNumberAttributesSet(SimpleXMLElement $xmlPhonebook)
         }
     }
     return false;
+}
+
+/**
+ * Get quickdial number and names as array from given XML phone book
+ *
+ * @param   SimpleXMLElement                $xmlPhonebook
+ * @return  array
+ */
+function getQuickdials(SimpleXMLElement $xmlPhonebook)
+{
+    if (!property_exists($xmlPhonebook, "phonebook")) {
+        return [];
+    }
+
+    $quickdialNames = [];
+    foreach ($xmlPhonebook->phonebook->contact as $contact) {
+        foreach ($contact->telephony->number as $number) {
+            if (isset($number->attributes()->quickdial)) {
+                $parts = explode(', ', $contact->person->realName);
+                if (count($parts) !== 2) {                  // if the name was not separated by a comma (no first and last name)
+                    $name = $contact->person->realName;     // fullName
+                } else {
+                    $name = $parts[1];                      // firstname
+                }
+                $name = preg_replace('/Dr. /', '', $name);
+                $quickdialNames[(string)$number->attributes()->quickdial] = substr($name, 0, 10);
+            }
+        }
+    }
+    return $quickdialNames;
+}
+
+/**
+ * upload background image to fritzbox
+ *
+ * @param SimpleXMLElement $phonebook
+ * @param array $config
+ * @return void
+ */
+function uploadBackgroundImage($phonebook, array $config)
+{
+    $quickdials = getQuickdials($phonebook);
+    if (!count($quickdials)) {
+        return;
+    }
+    $image = new BackgroundImage();
+    $image->uploadImage($quickdials, $config);
 }
 
 /**

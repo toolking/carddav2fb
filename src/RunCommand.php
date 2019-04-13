@@ -141,6 +141,11 @@ class RunCommand extends Command
             }
         }
         // end of insert branch next
+
+        // uploading background image
+        if (count($this->config['fritzbox']['fritzfons'])) {
+            uploadBackgroundImage($xmlPhonebook, $this->config['fritzbox']);
+        }
     }
     /**
      * checks if preconditions for upload images are OK
