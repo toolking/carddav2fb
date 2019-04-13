@@ -34,10 +34,13 @@ $config = [
         'user' => '',
         'password' => '',
         'fonpix'   => '/[YOURUSBSTICK]/FRITZ/fonpix',   // the storage on your usb stick for uploading images
-        'http' => [           // http client options are directly passed to Guzzle http client
-            // 'verify' => false, // uncomment to disable certificate check
+        'fritzfons' => [            // uncomment to upload quickdial image as background to designated FRITZ!Fon
+            // '613',               // internal number must be in the range '610' to '615' (maximum of DECT devices)
         ],
-        'plainFTP' => false, // set true to use FTP instead of FTPS e.g. on Windows
+        'http' => [                 // http client options are directly passed to Guzzle http client
+            // 'verify' => false,   // uncomment to disable certificate check
+        ],
+        'plainFTP' => false,        // set true to use FTP instead of FTPS e.g. on Windows
     ],
 
     'filters' => [

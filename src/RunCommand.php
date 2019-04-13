@@ -97,6 +97,11 @@ class RunCommand extends Command
 
         uploadPhonebook($xmlPhonebook, $this->config);
         error_log("Successful uploaded new Fritz!Box phonebook");
+
+        // uploading background image
+        if (count($this->config['fritzbox']['fritzfons'])) {
+            uploadBackgroundImage($xmlPhonebook, $this->config['fritzbox']);
+        }
     }
 
 
