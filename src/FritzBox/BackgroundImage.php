@@ -11,7 +11,6 @@ use Andig\FritzBox\Api;
 
 class BackgroundImage
 {
-
     const ASSETS = './assets/';
 
     /** @var  resource */
@@ -23,12 +22,11 @@ class BackgroundImage
     /** @var int */
     protected $textColor;
 
-
     public function __construct()
     {
         $this->bgImage = $this->getImageAsset(self::ASSETS . 'keypad.jpg');
         putenv('GDFONTPATH=' . realpath('.'));
-        $this->setFont(self::ASSETS . 'impact');
+        $this->setFont(self::ASSETS . 'impact.ttf');
         $this->setTextcolor(38, 142, 223);           // light blue from Fritz!Box GUI
     }
 
@@ -93,6 +91,9 @@ class BackgroundImage
         $posY = 0;
 
         foreach ($quickdials as $key => $quickdial) {
+            if ($key < 1 || $key > 9) {
+                continue;
+            }
             switch ($key) {
                 case 1:
                 case 4:
@@ -130,8 +131,6 @@ class BackgroundImage
                 case 9:
                     $posY = 272;
                     break;
-                default:          // all values > 9 with no keypad relation
-                    continue 2;
             }
             imagettftext($this->bgImage, 20, 0, $posX, $posY, $this->textColor, $this->font, $quickdial);
         }
@@ -188,7 +187,7 @@ $image
 $boundary--
 EOD;
 
-    return $body;
+        return $body;
     }
 
     /**
