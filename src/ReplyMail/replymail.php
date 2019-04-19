@@ -25,6 +25,7 @@ class replymail
         date_default_timezone_set('Etc/UTC');
                 
         $this->mail = new PHPMailer;                                    // create a new PHPMailer instance
+        $this->mail->charSet    = 'UTF-8';
         $this->mail->isSMTP();                                          // tell PHPMailer to use SMTP
         $this->mail->SMTPDebug  = $account['debug'];
         $this->mail->Host       = $account['url'];                      // set the hostname of the mail server
