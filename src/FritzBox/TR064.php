@@ -2,9 +2,7 @@
 
 namespace Andig\FritzBox;
 
-
 class TR064
-
 {
     private $ip;
     private $user;
@@ -12,7 +10,6 @@ class TR064
     private $client = null;
     private $errorCode;
     private $errorText;
-
 
     public function __construct($ip, $user, $password)
     {
@@ -22,26 +19,21 @@ class TR064
     }
 
     /**
-     * delivers a new SOAP client
+     * get a new SOAP client
      *
-     * @param   string $url       Fritz!Box IP
-     * @param   string $location  TR-064 area (https://avm.de/service/schnittstellen/)
-     * @param   string $service   TR-064 service (https://avm.de/service/schnittstellen/)
-     * @param   string $user      Fritz!Box user
-     * @param   string $password  Fritz!Box password
-     * @return                    SOAP client
+     * @param string $location  TR-064 area (https://avm.de/service/schnittstellen/)
+     * @param string $service   TR-064 service (https://avm.de/service/schnittstellen/)
+     * @return void
      */
     public function getClient($location, $service)
     {    
         if (!preg_match("/https/", $this->ip)) {
            $port = '49000';
-        }
-        else {
+        } else {
            $port = '49443';
         }
         $this->client = new \SoapClient(
-                            null,
-                            array(
+                            null, [
                                 'location'   => $this->ip.":".$port."/upnp/control/".$location,
                                 'uri'        => "urn:dslforum-org:service:".$service,
                                 'noroot'     => true,
@@ -49,15 +41,17 @@ class TR064
                                 'password'   => $this->password,
                                 'trace'      => true,
                                 'exceptions' => false
-                            ));
+                            ]);
     }
 
     /**
+     * get SOAP error data
      * disassemble the soapfault object to get more detailed
-     * error information into $errorCode and $errorText
-     * @param   soapfault  $phoneBookID
+     * error information into $this->errorCode and $this->errorText
+     * 
+     * @param object $result
      */
-    private function getErrorData ($result)
+    private function getErrorData($result)
     {
         $this->errorCode = isset($result->detail->UPnPError->errorCode) ? $result->detail->UPnPError->errorCode : $result->faultcode; 
         $this->errorText = isset($result->detail->UPnPError->errorDescription) ? $result->detail->UPnPError->errorDescription : $result->faultstring;
@@ -66,11 +60,12 @@ class TR064
     /**
      * delivers a list of phonebooks implemented on the FRITZ!Box 
      * requires a client of location 'x_contact' and service 'X_AVM-DE_OnTel:1'
-     * @return  string  list of phonebook index like '0,1,2,3' or
-     *                  402 (Invalid arguments Any)
-     *                  820 (Internal Error)
+     * 
+     * @return string list of phonebook index like '0,1,2,3' or
+     *                402 (Invalid arguments Any)
+     *                820 (Internal Error)
      */
-    public function getPhonebookList ()
+    public function getPhonebookList()
     {
         $result = $this->client->GetPhonebookList();
         if (is_soap_fault($result)) {
@@ -84,12 +79,7 @@ class TR064
     /**
      * delivers the content of a designated phonebook
      * requires a client of location 'x_contact' and service 'X_AVM-DE_OnTel:1'
-     * @param    integer          $phoneBookID
-     * @return   SimpleXMLElement phonebook or
-     *                            402 (Invalid arguments)
-     *                            713 (Invalid array index)
-     *                            820 (Internal Error)
-     * 
+     *
      * The following URL parameters are also supported but not coded yet:
      * Parameter name    Type          Remarks
      * ---------------------------------------------------------------------------------------
@@ -99,8 +89,14 @@ class TR064
      * timestamp         number        value from timestamp tag, to get the phonebook content
      *                                 only if last modification was made after this timestamp
      * tr064sid          string        Session ID for authentication (obsolete)
+     *  
+     * @param int $phoneBookID
+     * @return SimpleXMLElement|string phonebook or
+     *                                 402 (Invalid arguments)
+     *                                 713 (Invalid array index)
+     *                                 820 (Internal Error)
      */
-    public function getPhonebook ($phoneBookID = 0)
+    public function getPhonebook($phoneBookID = 0)
     {
         $result = $this->client->GetPhonebook(new \SoapParam($phoneBookID, 'NewPhonebookID'));
         if (is_soap_fault($result)) {
@@ -116,18 +112,17 @@ class TR064
     /**
      * add an new entry in the designated phonebook
      * requires a client of location 'x_contact' and service 'X_AVM-DE_OnTel:1'
-     * @param   string   $name
-     * @param   integer  $phoneBookID
-     * @return           null or
-     *                   402 (Invalid arguments)
-     *                   820 (Internal Error)
+     * 
+     * @param string $name
+     * @param integer $phoneBookID
+     * @return null|string 402 (Invalid arguments)
+     *                     820 (Internal Error)
      */
-    public function addPhonebook ($name, $phoneBookID = null)
+    public function addPhonebook($name, $phoneBookID = null)
     {   
         $result = $this->client->AddPhonebook(
                     new \SoapParam($name, 'NewPhonebookName'),
-                    new \SoapParam($phoneBookID, 'NewPhonebookExtraID')
-                    );
+                    new \SoapParam($phoneBookID, 'NewPhonebookExtraID'));
         if (is_soap_fault($result)) {
             $errorData = $this->getErrorData($result);
             error_log(sprintf("Error: %s (%s)! Could not add the new phonebook %s", $this->errorCode, $this->errorText, $name));
@@ -139,13 +134,13 @@ class TR064
     /**
      * deletes a designated phonebook
      * requires a client of location 'x_contact' and service 'X_AVM-DE_OnTel:1'
-     * @param    integer      $phoneBookID
-     * @return                null or
-     *                        402 (Invalid arguments)
-     *                        713 (Invalid array index)
-     *                        820 (Internal Error)
+     * 
+     * @param int $phoneBookID
+     * @return null|string 402 (Invalid arguments)
+     *                     713 (Invalid array index)
+     *                     820 (Internal Error)
      */
-    public function delPhonebook ($phoneBookID)
+    public function delPhonebook($phoneBookID)
     {
         $result = $this->client->DeletePhonebook(new \SoapParam($phoneBookID, 'NewPhonebookID'));
         if (is_soap_fault($result)) {
@@ -159,20 +154,20 @@ class TR064
     /**
      * add an new entry in the designated phonebook
      * requires a client of location 'x_contact' and service 'X_AVM-DE_OnTel:1'
-     * @param    integer      $phoneBookID
-     * @return                null or
-     *                        402 (Invalid arguments)
-     *                        600 (Argument invalid)
-     *                        713 (Invalid array index)
-     *                        820 (Internal Error)
+     * 
+     * @param SimplXMLElement $entry
+     * @param int $phoneBookID
+     * @return null|string 402 (Invalid arguments)
+     *                     600 (Argument invalid)
+     *                     713 (Invalid array index)
+     *                     820 (Internal Error)
      */
-    public function setPhonebookEntry ($entry, $phoneBookID = 0)
+    public function setPhonebookEntry($entry, $phoneBookID = 0)
     {   
         $result = $this->client->SetPhonebookEntry(
                     new \SoapParam($phoneBookID, 'NewPhonebookID'),
                     new \SoapParam($entry, 'NewPhonebookEntryData'),
-                    new \SoapParam(null, 'NewPhonebookEntryID')                           // add new entry
-                    );
+                    new \SoapParam(null, 'NewPhonebookEntryID'));
         if (is_soap_fault($result)) {
             $errorData = $this->getErrorData($result);
             error_log(sprintf("Error: %s (%s)! Could not add the new entry to the phonebook with index %s", $this->errorCode, $this->errorText, $phoneBookID));
@@ -181,4 +176,3 @@ class TR064
         return $result;
     }
 }
-?>

@@ -36,9 +36,7 @@
 namespace Andig\FritzAdr;
 
 class fritzadr 
-
 {
-
     const FRITZADRDEFINITION_19 = [
             ['BEZCHNG',   'C',  40],    //  1
             ['FIRMA',     'C',  40],    //  2
@@ -93,18 +91,22 @@ class fritzadr
 
     /**
      * Initialize the class with basic settings
+     * 
+     * @param int $fields number of fields in data dictionary 
      */
-    public function __construct (int $fields = 21)
+    public function __construct(int $fields = 21)
     {
         switch ($fields) {
             case 19:
                 $this->dbDefinition = self::FRITZADRDEFINITION_19;
                 $this->recordLength = 1646;
                 break;
+
             case 21:
                 $this->dbDefinition = self::FRITZADRDEFINITION_21;
                 $this->recordLength = 1750;
                 break;
+
             default:
                 $errorMsg = sprintf('FRITZ!Adr expects a database definition with 19 or 21 entities. You have specified %c!', $fields);
                 throw new \Exception($errorMsg);
@@ -117,6 +119,8 @@ class fritzadr
      * https://guru-home.dyndns.org/dBase.html
      * Example:
      * 03 67 06 0d 03 20 20 20 c1 02 d6 06 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 01 20 20 20  
+     * 
+     * @return string
      */
     private function setHeader()
     {
@@ -147,6 +151,8 @@ class fritzadr
      * https://guru-home.dyndns.org/dBase.html
      * Example (1 field):
      * 42 45 5a 43 48 4e 47 20 20 20 20 43 20 20 20 20 28 20 20 20 20 20 20 20 20 20 20 20 20 20 20 01
+     * 
+     * @return string
      */
     private function setFieldDescriptor()
     {   
@@ -162,51 +168,61 @@ class fritzadr
                 str_pad('', 14, chr(0));               // reserved; filled with zeros
             $entities = $entities . $entity;
         }
+
         return $entities;
     }
 
     /**
      * sets the byte separating the complete file header from the records
+     * 
+     * @return string 
      */
-    private function setHeaderEnd ()
+    private function setHeaderEnd()
     {
         return pack('C', 0x0d);
     }
 
     /**
-     * Assambles an assoziativ array according to the dbdefinition:
-     * Each field name to one entry filled up with blanks to the given
-     * field length
+     * get an assoziativ array according to the dbdefinition:
+     * each field name to one entry filled up with blanks to
+     * the given field length
+     * 
+     * @return array
      */
-    private function getBlankRecord ()
+    private function getBlankRecord()
     {
         $record = [];
         foreach ($this->dbDefinition as $field) {                 
             $record[$field[0]] = str_pad('', $field[2], ' ');      // fill every field with the designated amont of space
         }
+
         return $record;
     }
 
     /**
-     * Set a value to a designated field
-     * @param    array    $record  assoziative array of fields (e.g. ['NAME' => '', 'VORNAME' => ''])
-     * @param    string   $field  e.g. 'NAME'
-     * @param    string   $value  e.g. 'Doe'
-     * @return   int      $record
+     * set a value to a designated field
+     * 
+     * @param array $record  assoziative array of fields (e.g. ['NAME' => '', 'VORNAME' => ''])
+     * @param string $field  e.g. 'NAME'
+     * @param string $value  e.g. 'Doe'
+     * @return array $record
      */
-    private function setFieldValue (array $record, $field, $value)
+    private function setFieldValue(array $record, $field, $value)
     {
         $fieldLength = strlen($record[$field]);                    // count length of field
         $value = substr($value, 0, $fieldLength);                  // truncates the value to the field length
         $record[$field] = str_pad($value, $fieldLength, ' ');      // fills up with spaces
+
         return $record;
     }
 
     /**
-     * Add a new record to the database
-     * @param   array   $record  assoziative array of fields (e.g. ['NAME' => 'Doe', 'VORNAME' => 'John'])
+     * add a new record to the database
+     * 
+     * @param array $record  assoziative array of fields (e.g. ['NAME' => 'Doe', 'VORNAME' => 'John'])
+     * @return void
      */
-    public function addRecord (array $record)
+    public function addRecord(array $record)
     {
         $newRecord = $this->getBlankRecord();          // get an new (empty) record
         foreach ($record as $field => $value) {
@@ -225,6 +241,8 @@ class fritzadr
 
     /**
      * Return the eof byte
+     * 
+     * @return string
      */
     private function setEndOfFile()
     {
@@ -232,14 +250,19 @@ class fritzadr
     }
 
     /**
-     * Return the dBASE data well formated
+     * get the dBASE data well formated
+     * 
+     * @return string
      */
-    public function getDatabase ()
+    public function getDatabase()
     {
-        $dataBase = $this->setHeader() . $this->setFieldDescriptor() . $this->setHeaderEnd() . $this->table . $this->setEndOfFile();
+        $dataBase = $this->setHeader() .
+                    $this->setFieldDescriptor() .
+                    $this->setHeaderEnd() .
+                    $this->table .
+                    $this->setEndOfFile();
 
         return $dataBase;
     }
 
 }
-?>

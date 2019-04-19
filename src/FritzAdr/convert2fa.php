@@ -9,22 +9,20 @@ namespace Andig\FritzAdr;
  * The DB analysis of several FritzAdr.dbf files has surprisingly
  * shown both variants. Ultimately, the 21er works for me.
  * 
- * Author: Black Senator
+ * Copyright (c) 2019 Volker Püschel
+ * @license MIT
  */
 
 class convert2fa
-
 {
-    
     /**
      * delivers an structured adress array of fax numbers from a designated phone book
      *
-     * @param   xml    $fbphonebook    phone book in FRITZ!Box format
-     * @param   int    $numDataFields  amount of FRITZ!Adr dBase fields
-     * @return  array                  fax numbers, names
+     * @param SimpleXMLElement $xml phone book in FRITZ!Box format
+     * @return array fax numbers, names
      */
-    public function convert($xml) : array {
-        
+    public function convert($xml) : array
+    {        
         $i = -1;
         $adrRecords = [];
 
@@ -41,8 +39,7 @@ class convert2fa
                     $parts = explode (', ', $name);
                     if (count($parts) !== 2) {                     // if the name was not separated by a comma (no first and last name) 
                         $adrRecords[$i]['FIRMA'] = $name;          // fullName in field 2
-                    }
-                    else {
+                    } else {
                         $adrRecords[$i]['NAME']    = $parts[0];    // lastname in field 3
                         $adrRecords[$i]['VORNAME'] = $parts[1];    // firstnme in field 4
                     }
