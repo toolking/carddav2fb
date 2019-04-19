@@ -51,46 +51,54 @@ Edit `config.example.php` and save as `config.php` or use an other name of your 
 
 List all commands:
 
-    php carddav2fb.php list
+    ./carddav2fb list
 
 Complete processing:
 
-    php carddav2fb.php run
-
-Or, if you want to upload profil images:
-
-    php carddav2fb.php run -i
-
-If you want to use a different name for the configuration file instead of config.php:
-
-    php carddav2fb.php run -c different_conf.php
+    ./carddav2fb run
 
 Get help for a command:
 
-    php carddav2fb.php run -h
+    ./carddav2fb run -h
 
-Only upload your quickdial numbers as a background image to FRITZ!Fon (nothing else!)
+### Upload contact pictures
 
-    php carddav2fb.php background-image
+Uploading can also be included in uploading phonebook:
 
-## Precondition for using image upload (command -i)
+    ./carddav2fb run -i
 
-  * works only with FRITZ!Fon C4 or C5 handhelds
-  * your memory (USB stick) is indexed [Heimnetz -> Speicher (NAS) -> Speicher an der FRITZ!Box]
-  * ftp access is activ [Heimnetz -> Speicher (NAS) -> Heimnetzfreigabe]
-  * you use an standalone user (NOT `dslf-config`!) which has explicit permissions for FRITZ!Box settings, access to NAS content and read/write permission to all available memory [System -> FRITZ!Box-Benutzer -> [user] -> Berechtigungen]
+#### Settings
 
-## Precondition for using the background image upload
+  * memory (USB stick) is indexed [Heimnetz -> Speicher (NAS) -> Speicher an der FRITZ!Box]
+  * ftp access is active [Heimnetz -> Speicher (NAS) -> Heimnetzfreigabe]
 
-  * works only with FRITZ!Fon C4 or C5 handhelds
-  * settings in FRITZ!Fon: Einstellungen -> Anzeige -> Startbildschirme -> Klassisch -> Optionen -> Hintergrundbild
+#### Preconditions
+
+  * requires FRITZ!Fon C4 or C5 handhelds
+  * you use an standalone user (NOT! dslf-config) which has explicit permissions for FRITZ!Box settings, access to NAS content and read/write permission to all available memory [System -> FRITZ!Box-Benutzer -> [user] -> Berechtigungen]
+
+<img align="right" src="assets/fritzfon.png"/>
+
+### Upload Fritz!FON background image
+
+The background image will be uploaded during
+
+    ./carddav2fb run
+
+Alternativly using the `background-image` command it is possible to upload only the background image to FRITZ!Fon (nothing else!)
+
+    ./carddav2fb background-image
+
+#### Settings
+
+  * FRITZ!Fon: Einstellungen -> Anzeige -> Startbildschirme -> Klassisch -> Optionen -> Hintergrundbild
+
+#### Preconditions
+
+  * requires FRITZ!Fon C4 or C5 handhelds
+  * quickdial numbers are set between 1 to 9
   * assignment is made via the internal number(s) of the handheld(s) in the 'fritzfons'-array in config.php 
   * internal number have to be between '610' and '615', no '**'-prefix
-  
-### Precondition for using this version
-
-  * In addition composer.json includes two additional libraries - so if your upgrading ´composer.lock´ must be deleted and reinstalled
-  * the config.example.php contains additional settings - so if your upgrading be aware to include them to your config.php
 
 ## Debugging
 
