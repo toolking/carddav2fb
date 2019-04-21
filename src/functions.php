@@ -690,7 +690,7 @@ function downloadPhonebookSOAP ($config)
  * if $config['fritzbox']['fritzadr'] is set, than all contact (names) with a fax number
  * are copied into a dBase III database fritzadr.dbf for FRITZ!fax purposes
  *  
- * @param SimplXMLElement $xmlPhonebook phonebook in FRITZ!Box format
+ * @param SimpleXMLElement $xmlPhonebook phonebook in FRITZ!Box format
  * @param array $config
  * @return int number of records written to fritzadr.dbf
  */
