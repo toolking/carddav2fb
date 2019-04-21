@@ -54,4 +54,3 @@ class convert2fa
         return $adrRecords;
     }
 }
-?>

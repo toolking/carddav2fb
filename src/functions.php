@@ -4,7 +4,7 @@ namespace Andig;
 
 use Andig\CardDav\Backend;
 use Andig\Vcard\Parser;
-use Andig\Vcard\mk_vCard;
+use Andig\Vcard\fritzvCard;
 use Andig\FritzBox\Converter;
 use Andig\FritzBox\Api;
 use Andig\FritzBox\BackgroundImage;
@@ -424,7 +424,6 @@ function uploadPhonebook(SimpleXMLElement $xmlPhonebook, array $config)
     }
 }
 
-
 /**
  * Downloads the phone book from Fritzbox
  *
@@ -434,7 +433,6 @@ function uploadPhonebook(SimpleXMLElement $xmlPhonebook, array $config)
  */
 function downloadPhonebook(array $fritzbox, array $phonebook)
 {
-
     $fritz = new Api($fritzbox['url']);
     $fritz->setAuth($fritzbox['user'], $fritzbox['password']);
     $fritz->mergeClientOptions($fritzbox['http'] ?? []);
@@ -454,7 +452,6 @@ function downloadPhonebook(array $fritzbox, array $phonebook)
 
     return $xmlPhonebook;
 }
-
 
 /**
  * Get quickdial and vanity special attributes from given XML phone book
@@ -480,7 +477,6 @@ function getPhoneNumberAttributes(SimpleXMLElement $xmlPhonebook)
     }
     return $specialAttributes;
 }
-
 
 /**
  * Restore special attributes (quickdial, vanity) in given target phone book
@@ -510,7 +506,6 @@ function mergePhoneNumberAttributes(SimpleXMLElement $xmlTargetPhoneBook, array 
     return $xmlTargetPhoneBook;
 }
 
-
 /**
  * Build unique key with normalized phone number to lookup phonebook attributes
  * normalizing number means: remove all non-"+" and non-number characters like SPACE, MINUS, SLASH...
@@ -523,7 +518,6 @@ function generateUniqueKey(string $number, string $carddav_uid)
 {
     return preg_replace("/[^\+0-9]/", "", $number)."@".$carddav_uid;
 }
-
 
 /**
  * Check if special attributes already set (e.g., via CardDav extension 'X-FB-QUICKDIAL' / 'X-FB-VANITY')
@@ -631,8 +625,9 @@ function checkUpdates($oldPhonebook, $newPhonebook, $config)
         $reply = $config['reply'];
     }
 
-    $card    = new mk_vCard();
-    $eMailer = new replymail($reply);
+    $card    = new fritzvCard;
+    $eMailer = new replymail;
+    $eMailer->setSMTPcredentials($reply);
     $numbers = [];
 
     // check if entries are not included in the intended upload
@@ -656,7 +651,7 @@ function checkUpdates($oldPhonebook, $newPhonebook, $config)
             $email = (string)$contact->telephony->services->email;
             $vip   = $contact->category;
             // assemble vCard from new entry(s)
-            $new_vCard = $card->createVCard($name, $numbers, $email, $vip);
+            $new_vCard = $card->getvCard($name, $numbers, $email, $vip);
             // send new entry as vCard to designated reply adress
             if ($eMailer->sendReply($config['phonebook']['name'], $new_vCard, $name . '.vcf')) {
                 $i++;

@@ -4,28 +4,33 @@ namespace Andig\ReplyMail;
 
 /* class replymail delivers a simple function based on PHPMailer
  *
- * Author: BlackSenator
- * https://github.com/BlackSenator
- *
- * This script is an extension for carddav2fb from andig
- * Dependency: PHPMailer is additional instaled via composer
+ * Copyright (c) 2019 Volker Püschel
+ * @license MIT
  */
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 class replymail
-
 {
     private $mail;
 
-
-    public function __construct($account)
+    public function __construct()
     {
         date_default_timezone_set('Etc/UTC');
 
         $this->mail = new PHPMailer;                                    // create a new PHPMailer instance
         $this->mail->CharSet    = 'UTF-8';
+    }
+
+    /**
+     * set SMTP credetials
+     *
+     * @param array $account
+     * @return void
+     */
+    public function setSMTPcredentials($account)
+    {
         $this->mail->isSMTP();                                          // tell PHPMailer to use SMTP
         $this->mail->SMTPDebug  = $account['debug'];
         $this->mail->Host       = $account['url'];                      // set the hostname of the mail server
@@ -37,6 +42,15 @@ class replymail
         $this->mail->setFrom($account['user'], 'carddav2fb');           // set who the message is to be sent fromly-to address
         $this->mail->addAddress($account['receiver']);                  // set who the message is to be sent to
     }
+
+    /**
+     * send reply mail
+     *
+     * @param string $phonebook
+     * @param string $attachment
+     * @param string $label
+     * @return bool
+     */
 
     public function sendReply($phonebook, $attachment, $label)
     {
