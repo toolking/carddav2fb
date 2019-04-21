@@ -2,6 +2,10 @@
 
 namespace Andig\FritzBox;
 
+use Andig;
+use \SimpleXMLElement;
+use \stdClass;
+
 class TR064
 {
     private $ip;
@@ -61,9 +65,9 @@ class TR064
      * delivers a list of phonebooks implemented on the FRITZ!Box 
      * requires a client of location 'x_contact' and service 'X_AVM-DE_OnTel:1'
      * 
-     * @return string list of phonebook index like '0,1,2,3' or
-     *                402 (Invalid arguments Any)
-     *                820 (Internal Error)
+     * @return string|void list of phonebook index like '0,1,2,3' or
+     *                     402 (Invalid arguments Any)
+     *                     820 (Internal Error)
      */
     public function getPhonebookList()
     {
@@ -91,10 +95,10 @@ class TR064
      * tr064sid          string        Session ID for authentication (obsolete)
      *  
      * @param int $phoneBookID
-     * @return SimpleXMLElement|string phonebook or
-     *                                 402 (Invalid arguments)
-     *                                 713 (Invalid array index)
-     *                                 820 (Internal Error)
+     * @return SimpleXMLElement|void  phonebook or
+     *                                402 (Invalid arguments)
+     *                                713 (Invalid array index)
+     *                                820 (Internal Error)
      */
     public function getPhonebook($phoneBookID = 0)
     {
@@ -106,6 +110,7 @@ class TR064
         }
         $phonebook = simplexml_load_file($result['NewPhonebookURL']);
         $phonebook->asXML();
+
         return $phonebook;
     }
     
@@ -115,7 +120,8 @@ class TR064
      * 
      * @param string $name
      * @param integer $phoneBookID
-     * @return null|string 402 (Invalid arguments)
+     * @return void|string null or 
+     *                     402 (Invalid arguments)
      *                     820 (Internal Error)
      */
     public function addPhonebook($name, $phoneBookID = null)
@@ -128,6 +134,7 @@ class TR064
             error_log(sprintf("Error: %s (%s)! Could not add the new phonebook %s", $this->errorCode, $this->errorText, $name));
             return;
         }
+
         return $result;
     }
 
@@ -136,7 +143,8 @@ class TR064
      * requires a client of location 'x_contact' and service 'X_AVM-DE_OnTel:1'
      * 
      * @param int $phoneBookID
-     * @return null|string 402 (Invalid arguments)
+     * @return string|void null or
+     *                     402 (Invalid arguments)
      *                     713 (Invalid array index)
      *                     820 (Internal Error)
      */
@@ -148,6 +156,7 @@ class TR064
             error_log(sprintf("Error: %s (%s)! Could not delete the phonebook with index %s", $this->errorCode, $this->errorText, $phoneBookID));
             return;
         }
+
         return $result;
     }
 
@@ -157,12 +166,13 @@ class TR064
      * 
      * @param SimplXMLElement $entry
      * @param int $phoneBookID
-     * @return null|string 402 (Invalid arguments)
+     * @return string|void null or
+     *                     402 (Invalid arguments)
      *                     600 (Argument invalid)
      *                     713 (Invalid array index)
      *                     820 (Internal Error)
      */
-    public function setPhonebookEntry($entry, $phoneBookID = 0)
+    public function setPhonebookEntry(SimplXMLElement $entry, $phoneBookID = 0)
     {   
         $result = $this->client->SetPhonebookEntry(
                     new \SoapParam($phoneBookID, 'NewPhonebookID'),
@@ -173,6 +183,7 @@ class TR064
             error_log(sprintf("Error: %s (%s)! Could not add the new entry to the phonebook with index %s", $this->errorCode, $this->errorText, $phoneBookID));
             return;
         }
+
         return $result;
     }
 }

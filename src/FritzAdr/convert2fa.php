@@ -13,6 +13,10 @@ namespace Andig\FritzAdr;
  * @license MIT
  */
 
+use Andig;
+use \SimpleXMLElement;
+use \stdClass;
+
 class convert2fa
 {
     /**
@@ -21,12 +25,12 @@ class convert2fa
      * @param SimpleXMLElement $xml phone book in FRITZ!Box format
      * @return array fax numbers, names
      */
-    public function convert($xml) : array
+    public function convert(SimpleXMLElement $xmlPhonebook) : array
     {        
         $i = -1;
         $adrRecords = [];
 
-        foreach ($xml->phonebook->contact as $contact) {
+        foreach ($xmlPhonebook->phonebook->contact as $contact) {
             foreach ($contact->telephony->number as $number) {
                 if ((string)$number['type'] == "fax_work") {
                     $i++;

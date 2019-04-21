@@ -681,12 +681,13 @@ function downloadPhonebookSOAP ($config)
 
 /**
  * if $config['fritzbox']['fritzadr'] is set, than all contact (names) with a fax number
- * are copied into a dBase III database fritzadr.dbf for FRITZ!fax purposes 
- * @param   xml    $fbphonebook    phone book in FRITZ!Box format
- * @param   array  the  amount of FRITZ!Adr dBase fields
- * @return  int    number of records written to fritzadr.dbf
+ * are copied into a dBase III database fritzadr.dbf for FRITZ!fax purposes
+ *  
+ * @param SimplXMLElement $fbphonebook phone book in FRITZ!Box format
+ * @param array $config
+ * @return int number of records written to fritzadr.dbf
  */
-function uploadFritzAdr ($xml, $config)
+function uploadFritzAdr (SimpleXMLElement $xml, $config)
 {   
     // Prepare FTP connection
     $secure = @$config['plainFTP'] ? $config['plainFTP'] : false;
