@@ -309,7 +309,9 @@ EOD
     }
 
     /**
-     * delivers the UNIX timestamp of the last modification
+     * get the UNIX timestamp of the last modification
+     * 
+     * @return int|bool
      */
     public function getModDate ()
     {            

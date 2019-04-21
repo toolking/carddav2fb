@@ -22,7 +22,7 @@ class convert2fa
     /**
      * delivers an structured adress array of fax numbers from a designated phone book
      *
-     * @param SimpleXMLElement $xml phone book in FRITZ!Box format
+     * @param SimpleXMLElement $xmlPhonebook phonebook in FRITZ!Box format
      * @return array fax numbers, names
      */
     public function convert(SimpleXMLElement $xmlPhonebook) : array

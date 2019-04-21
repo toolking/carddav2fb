@@ -602,7 +602,8 @@ function uploadBackgroundImage($phonebook, array $config)
  * get the last modification timestamp of the CardDAV data base
  * It's a little bit time consuming (> 1 sec. per database) - but much shorter,
  * if depending on the result the complete download can be spared
- * @return  unix timestamp
+ * 
+ * @return int|bool unix timestamp
  */
 function getLastModification ($backend)
 {
@@ -613,7 +614,12 @@ function getLastModification ($backend)
  * this function checked if all phone numbers from the FRITZ!Box phonebook are
  * included in the new phonebook. If not so the number(s) and type(s) resp.
  * vip flag are compiled in a vCard and sent as a vcf file with the name as
- * filename will be send as an email attachement 
+ * filename will be send as an email attachement
+ * 
+ * @param SimpleXMLElement $oldPhonebook 
+ * @param SimpleXMLElement $newPhonebook
+ * @param array $config
+ * @return int
  */
 function checkUpdates ($oldPhonebook, $newPhonebook, $config)
 
@@ -665,8 +671,9 @@ function checkUpdates ($oldPhonebook, $newPhonebook, $config)
 /**
  * Downloads the phone book from Fritzbox via TR-064
  * Unfortunately, only this export will deliver the timestamp of the last change
- * @param   array             $config
- * @return  SimpleXMLElement  phonebook
+ * 
+ * @param array $config
+ * @return SimpleXMLElement|void phonebook
  */
 function downloadPhonebookSOAP ($config)
 {
@@ -683,11 +690,11 @@ function downloadPhonebookSOAP ($config)
  * if $config['fritzbox']['fritzadr'] is set, than all contact (names) with a fax number
  * are copied into a dBase III database fritzadr.dbf for FRITZ!fax purposes
  *  
- * @param SimplXMLElement $fbphonebook phone book in FRITZ!Box format
+ * @param SimplXMLElement $xmlPhonebook phonebook in FRITZ!Box format
  * @param array $config
  * @return int number of records written to fritzadr.dbf
  */
-function uploadFritzAdr (SimpleXMLElement $xml, $config)
+function uploadFritzAdr (SimpleXMLElement $xmlPhonebook, $config)
 {   
     // Prepare FTP connection
     $secure = @$config['plainFTP'] ? $config['plainFTP'] : false;
@@ -696,7 +703,7 @@ function uploadFritzAdr (SimpleXMLElement $xml, $config)
     // open a fast in-memory file stream
     $memstream = fopen('php://memory', 'r+');
     $converter = new convert2fa();                             
-    $faxContacts = $converter->convert($xml);                  // extracting 
+    $faxContacts = $converter->convert($xmlPhonebook);                  // extracting 
     $numRecords = count($faxContacts); 
     if ($numRecords) {
         $fritzAdr = new fritzadr();

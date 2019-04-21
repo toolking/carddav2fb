@@ -25,7 +25,7 @@ class replymail
         date_default_timezone_set('Etc/UTC');
                 
         $this->mail = new PHPMailer;                                    // create a new PHPMailer instance
-        $this->mail->charSet    = 'UTF-8';
+        $this->mail->CharSet    = 'UTF-8';
         $this->mail->isSMTP();                                          // tell PHPMailer to use SMTP
         $this->mail->SMTPDebug  = $account['debug'];
         $this->mail->Host       = $account['url'];                      // set the hostname of the mail server
@@ -46,7 +46,7 @@ class replymail
         $this->mail->addStringAttachment($attachment, $label, 'quoted-printable', 'text/x-vcard');
 
         if (!$this->mail->send()) {                                     // send the message, check for errors
-            echo 'Mailer Error: ' . $mail->ErrorInfo;
+            echo 'Mailer Error: ' . $this->mail->ErrorInfo;
             return false;
         }
         else

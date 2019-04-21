@@ -164,7 +164,7 @@ class TR064
      * add an new entry in the designated phonebook
      * requires a client of location 'x_contact' and service 'X_AVM-DE_OnTel:1'
      * 
-     * @param SimplXMLElement $entry
+     * @param SimpleXMLElement $entry
      * @param int $phoneBookID
      * @return string|void null or
      *                     402 (Invalid arguments)
@@ -172,7 +172,7 @@ class TR064
      *                     713 (Invalid array index)
      *                     820 (Internal Error)
      */
-    public function setPhonebookEntry(SimplXMLElement $entry, $phoneBookID = 0)
+    public function setPhonebookEntry(SimpleXMLElement $entry, $phoneBookID = 0)
     {   
         $result = $this->client->SetPhonebookEntry(
                     new \SoapParam($phoneBookID, 'NewPhonebookID'),
