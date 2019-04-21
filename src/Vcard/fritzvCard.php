@@ -24,7 +24,7 @@ class fritzvCard
      * @param string $vip
      * @return string
      */
-    public function getvCard ($name, $numbers, $email = '', $vip = '')
+    public function getvCard($name, $numbers, $email = '', $vip = '')
     {
         $newVCard = new VCard();
 
@@ -32,15 +32,15 @@ class fritzvCard
         count($parts) !== 2 ? $newVCard->addCompany($name) : $newVCard->addName($parts[0], $parts[1]);
         foreach ($numbers as $number) {
             switch ($number[0]) {
-                case 'fax_work' :
+                case 'fax_work':
                     $newVCard->addPhoneNumber($number[1], 'FAX');
                     break;
 
-                case 'mobile' :
+                case 'mobile':
                     $newVCard->addPhoneNumber($number[1], 'CELL');
                     break;
 
-                default :                                   // home & work
+                default:                                   // home & work
                     $newVCard->addPhoneNumber($number[1], strtoupper($number[0]));
                     break;
             }
