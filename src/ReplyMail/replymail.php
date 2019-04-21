@@ -20,10 +20,10 @@ class replymail
     private $mail;
 
 
-    public function __construct ($account)
-    {              
+    public function __construct($account)
+    {
         date_default_timezone_set('Etc/UTC');
-                
+
         $this->mail = new PHPMailer;                                    // create a new PHPMailer instance
         $this->mail->CharSet    = 'UTF-8';
         $this->mail->isSMTP();                                          // tell PHPMailer to use SMTP
@@ -38,7 +38,7 @@ class replymail
         $this->mail->addAddress($account['receiver']);                  // set who the message is to be sent to
     }
 
-    public function sendReply ($phonebook, $attachment, $label)
+    public function sendReply($phonebook, $attachment, $label)
     {
         $this->mail->clearAttachments();                                // initialize
         $this->mail->Subject = 'Newer contact was found in phonebook: ' . $phonebook;  //Set the subject line
@@ -49,10 +49,6 @@ class replymail
             echo 'Mailer Error: ' . $this->mail->ErrorInfo;
             return false;
         }
-        else
-        {
-            return true;
-        }
+        return true;
     }
 }
-?>

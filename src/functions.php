@@ -602,10 +602,10 @@ function uploadBackgroundImage($phonebook, array $config)
  * get the last modification timestamp of the CardDAV data base
  * It's a little bit time consuming (> 1 sec. per database) - but much shorter,
  * if depending on the result the complete download can be spared
- * 
+ *
  * @return int|bool unix timestamp
  */
-function getLastModification ($backend)
+function getLastModification($backend)
 {
     return $backend->getModDate();
 }
@@ -615,28 +615,27 @@ function getLastModification ($backend)
  * included in the new phonebook. If not so the number(s) and type(s) resp.
  * vip flag are compiled in a vCard and sent as a vcf file with the name as
  * filename will be send as an email attachement
- * 
- * @param SimpleXMLElement $oldPhonebook 
+ *
+ * @param SimpleXMLElement $oldPhonebook
  * @param SimpleXMLElement $newPhonebook
  * @param array $config
  * @return int
  */
-function checkUpdates ($oldPhonebook, $newPhonebook, $config)
+function checkUpdates($oldPhonebook, $newPhonebook, $config)
 
 {
     $i = 0;
 
     if (!isset($config['reply'])) {
         return $i;
-    }
-    else {
+    } else {
         $reply = $config['reply'];
     }
 
-    $card    = new mk_vCard ();
-    $eMailer = new replymail ($reply);
+    $card    = new mk_vCard();
+    $eMailer = new replymail($reply);
     $numbers = [];
-    
+
     // check if entries are not included in the intended upload
     foreach ($oldPhonebook->phonebook->contact as $contact) {
         $x = -1;
@@ -646,7 +645,7 @@ function checkUpdates ($oldPhonebook, $newPhonebook, $config)
                 continue;
             }
             $querystr = sprintf('//telephony[number = "%s"]', (string)$number);    // assemble search string
-            if (!$DataObjects = $newPhonebook->xpath($querystr)) {                 // not found in upload = new entry! 
+            if (!$DataObjects = $newPhonebook->xpath($querystr)) {                 // not found in upload = new entry!
                 $x++;                                                              // possible n+1 new/additional numbers
                 $numbers[$x][0] = (string)$number['type'];
                 $numbers[$x][1] = (string)$number;
@@ -658,9 +657,9 @@ function checkUpdates ($oldPhonebook, $newPhonebook, $config)
             $email = (string)$contact->telephony->services->email;
             $vip   = $contact->category;
             // assemble vCard from new entry(s)
-            $new_vCard = $card->createVCard($name, $numbers, $email, $vip);  
+            $new_vCard = $card->createVCard($name, $numbers, $email, $vip);
             // send new entry as vCard to designated reply adress
-            if ($eMailer->sendReply($config['phonebook']['name'], $new_vCard, $name . '.vcf')) {    
+            if ($eMailer->sendReply($config['phonebook']['name'], $new_vCard, $name . '.vcf')) {
                 $i++;
             }
         }
@@ -671,16 +670,16 @@ function checkUpdates ($oldPhonebook, $newPhonebook, $config)
 /**
  * Downloads the phone book from Fritzbox via TR-064
  * Unfortunately, only this export will deliver the timestamp of the last change
- * 
+ *
  * @param array $config
  * @return SimpleXMLElement|void phonebook
  */
-function downloadPhonebookSOAP ($config)
+function downloadPhonebookSOAP($config)
 {
     $fritzbox = $config['fritzbox'];
     $phonebook = $config ['phonebook'];
 
-    $client = new TR064 ($fritzbox['url'], $fritzbox['user'], $fritzbox['password']);
+    $client = new TR064($fritzbox['url'], $fritzbox['user'], $fritzbox['password']);
     $client->getClient('x_contact', 'X_AVM-DE_OnTel:1');
     $result = $client->getPhonebook($phonebook['id']);
     return $result;
@@ -689,22 +688,22 @@ function downloadPhonebookSOAP ($config)
 /**
  * if $config['fritzbox']['fritzadr'] is set, than all contact (names) with a fax number
  * are copied into a dBase III database fritzadr.dbf for FRITZ!fax purposes
- *  
+ *
  * @param SimpleXMLElement $xmlPhonebook phonebook in FRITZ!Box format
  * @param array $config
  * @return int number of records written to fritzadr.dbf
  */
-function uploadFritzAdr (SimpleXMLElement $xmlPhonebook, $config)
-{   
+function uploadFritzAdr(SimpleXMLElement $xmlPhonebook, $config)
+{
     // Prepare FTP connection
     $secure = @$config['plainFTP'] ? $config['plainFTP'] : false;
     $ftp_conn = getFtpConnection($config['url'], $config['user'], $config['password'], $config['fonpix'], $secure);
 
     // open a fast in-memory file stream
     $memstream = fopen('php://memory', 'r+');
-    $converter = new convert2fa();                             
-    $faxContacts = $converter->convert($xmlPhonebook);                  // extracting 
-    $numRecords = count($faxContacts); 
+    $converter = new convert2fa();
+    $faxContacts = $converter->convert($xmlPhonebook);                  // extracting
+    $numRecords = count($faxContacts);
     if ($numRecords) {
         $fritzAdr = new fritzadr();
         foreach ($faxContacts as $faxContact) {

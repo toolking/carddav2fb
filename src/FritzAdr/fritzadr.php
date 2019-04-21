@@ -6,7 +6,7 @@
  * FRITZ!Adr is an address and phonebook for the more or less legacy
  * programs FRITZ!Fon, FRITZ!Data and FRITZ!Com. But still in use for
  * FRITZ!fax: https://ftp.avm.de/archive/fritz.box/tools/fax4box
- * The database is a dBASE III file, the default name is 'FritzAdr.dbf'. 
+ * The database is a dBASE III file, the default name is 'FritzAdr.dbf'.
  *
  * There are three reasons for using this class:
  * 1. because of the difficulty of implementing the outdated extension
@@ -21,21 +21,22 @@
  * The DB analysis of a few FritzAdr.dbf files has surprisingly
  * shown two variants with 19 e.g. 21 fields.
  * Ultimately the 21er version works for me.
- * 
+ *
  * Usage:
  * setting a new instance with the number of fields (default: 21):
  *      $fritzAdr = new fritzadr();    // number of fields
  * appending a record:
  *      $fritzAdr->addRecord (['NAME' => 'John', 'VORNAME' => 'Doe']);
  * receiving the data
- *      file_put_contents('FritzAdr.dbf', $fritzAdr->getDatabase());          
+ *      file_put_contents('FritzAdr.dbf', $fritzAdr->getDatabase());
  *
- * Author: Black Senator
+ * Copyright (c) 2019 Volker Püschel
+ * @license MIT
  */
 
 namespace Andig\FritzAdr;
 
-class fritzadr 
+class fritzadr
 {
     const FRITZADRDEFINITION_19 = [
             ['BEZCHNG',   'C',  40],    //  1
@@ -86,13 +87,13 @@ class fritzadr
             $numAttributes = 0,
             $headerLength  = 0,
             $recordLength  = 0,
-            $table  = '',   
+            $table  = '',
             $numRecords    = 0;
 
     /**
      * Initialize the class with basic settings
-     * 
-     * @param int $fields number of fields in data dictionary 
+     *
+     * @param int $fields number of fields in data dictionary
      */
     public function __construct(int $fields = 21)
     {
@@ -118,8 +119,8 @@ class fritzadr
      * Assambles the 32 byte header describing the kind of file according to:
      * https://guru-home.dyndns.org/dBase.html
      * Example:
-     * 03 67 06 0d 03 20 20 20 c1 02 d6 06 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 01 20 20 20  
-     * 
+     * 03 67 06 0d 03 20 20 20 c1 02 d6 06 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 01 20 20 20
+     *
      * @return string
      */
     private function setHeader()
@@ -140,22 +141,22 @@ class fritzadr
                                                         * 16      dBase IV filed; filled with zero
                                                         * 17 - 20 reserved for multi-user processing
                                                         * 21 - 28 reserved for multi-user processing */
-            pack('C', 0x01) .                          // 29      mdx file exist   
+            pack('C', 0x01) .                          // 29      mdx file exist
             str_pad('', 3, chr(0));                    /* 30      language code
                                                         * 31 - 32 reserved; filled with zeros */
         return $header;
     }
-        
+
     /**
      * Assambles the 32 byte descriptor describing each field (entity) according to:
      * https://guru-home.dyndns.org/dBase.html
      * Example (1 field):
      * 42 45 5a 43 48 4e 47 20 20 20 20 43 20 20 20 20 28 20 20 20 20 20 20 20 20 20 20 20 20 20 20 01
-     * 
+     *
      * @return string
      */
     private function setFieldDescriptor()
-    {   
+    {
         $entities = null;
         foreach ($this->dbDefinition as $attribute) {
             $entity =
@@ -174,8 +175,8 @@ class fritzadr
 
     /**
      * sets the byte separating the complete file header from the records
-     * 
-     * @return string 
+     *
+     * @return string
      */
     private function setHeaderEnd()
     {
@@ -186,13 +187,13 @@ class fritzadr
      * get an assoziativ array according to the dbdefinition:
      * each field name to one entry filled up with blanks to
      * the given field length
-     * 
+     *
      * @return array
      */
     private function getBlankRecord()
     {
         $record = [];
-        foreach ($this->dbDefinition as $field) {                 
+        foreach ($this->dbDefinition as $field) {
             $record[$field[0]] = str_pad('', $field[2], ' ');      // fill every field with the designated amont of space
         }
 
@@ -201,7 +202,7 @@ class fritzadr
 
     /**
      * set a value to a designated field
-     * 
+     *
      * @param array $record  assoziative array of fields (e.g. ['NAME' => '', 'VORNAME' => ''])
      * @param string $field  e.g. 'NAME'
      * @param string $value  e.g. 'Doe'
@@ -218,7 +219,7 @@ class fritzadr
 
     /**
      * add a new record to the database
-     * 
+     *
      * @param array $record  assoziative array of fields (e.g. ['NAME' => 'Doe', 'VORNAME' => 'John'])
      * @return void
      */
@@ -230,18 +231,18 @@ class fritzadr
                 // transfer the given values into the new record
                 $newRecord = $this->setFieldValue($newRecord, $field, $value);
             }
-        }  
-        $dataset = pack('C', 0x20);                // start byte (0x2a if record is marked for deletion) 
+        }
+        $dataset = pack('C', 0x20);                // start byte (0x2a if record is marked for deletion)
         foreach ($newRecord as $field) {
             $dataset = $dataset . $field;          // assamble the array into a dataset (ASCII)
         }
-        $this->table = $this->table . $dataset;    // append the dataset to the global var table    
+        $this->table = $this->table . $dataset;    // append the dataset to the global var table
         $this->numRecords++;                       // increment the record counter; needed in setHeader()
     }
 
     /**
      * Return the eof byte
-     * 
+     *
      * @return string
      */
     private function setEndOfFile()
@@ -251,7 +252,7 @@ class fritzadr
 
     /**
      * get the dBASE data well formated
-     * 
+     *
      * @return string
      */
     public function getDatabase()

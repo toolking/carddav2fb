@@ -310,11 +310,11 @@ EOD
 
     /**
      * get the UNIX timestamp of the last modification
-     * 
+     *
      * @return int|bool
      */
     public function getModDate ()
-    {            
+    {
         $response = $this->getCachedClient()->request('PROPFIND', $this->url);
         $body = new \SimpleXMLElement((string)$response->getBody());
         foreach ($body->response->propstat->prop as $prop) {
