@@ -622,7 +622,6 @@ function getLastModification($backend)
  * @return int
  */
 function checkUpdates($oldPhonebook, $newPhonebook, $config)
-
 {
     $i = 0;
 
