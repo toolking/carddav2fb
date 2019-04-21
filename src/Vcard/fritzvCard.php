@@ -19,7 +19,7 @@ class fritzvCard
      * get a new simple vCard according to FRITZ!Box phonebook data
      *
      * @param string $name
-     * @param string $numbers
+     * @param array $numbers
      * @param string $email
      * @param string $vip
      * @return string
@@ -45,7 +45,7 @@ class fritzvCard
                     break;
             }
         }
-        if (isset($email)) {
+        if (!empty($email)) {
             $newVCard->addEmail($email);
         }
         if ($vip == 1) {
