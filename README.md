@@ -33,16 +33,11 @@ This is an extendeded version of https://github.com/andig/carddav2fb which is an
 
 Install carddav2fb:
 
-    git clone https://github.com/BlackSenator/carddav2fb.git
+    git clone https://github.com/blacksenator/carddav2fb.git
     cd carddav2fb
 
 Install composer (see https://getcomposer.org/download/ for newer instructions):
 
-    php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
-    php -r "if (hash_file('SHA384', 'composer-setup.php') === 544e09ee996cdf60ece3804abc52599c22b1f40f4323403c44d44fdfdd586475ca9813a858088ffbc1f233e9b180f061') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
-    php composer-setup.php
-    php -r "unlink('composer-setup.php');"
-    mv composer.phar /usr/local/bin/composer
     composer install --no-dev --no-suggest
 
 Edit `config.example.php` and save as `config.php` or use an other name of your choice (but than keep in mind to use the -c option to define your renamed file)
@@ -97,7 +92,7 @@ Alternativly using the `background-image` command it is possible to upload only 
 
   * requires FRITZ!Fon C4 or C5 handhelds
   * quickdial numbers are set between 1 to 9
-  * assignment is made via the internal number(s) of the handheld(s) in the 'fritzfons'-array in config.php 
+  * assignment is made via the internal number(s) of the handheld(s) in the 'fritzfons'-array in config.php
   * internal number have to be between '610' and '615', no '**'-prefix
 
 ## Debugging
