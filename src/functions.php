@@ -4,13 +4,11 @@ namespace Andig;
 
 use Andig\CardDav\Backend;
 use Andig\Vcard\Parser;
-use Andig\Vcard\fritzvCard;
 use Andig\FritzBox\Converter;
 use Andig\FritzBox\Api;
 use Andig\FritzBox\BackgroundImage;
-use Andig\FritzBox\TR064;
-use Andig\FritzAdr\convert2fa;
-use Andig\FritzAdr\fritzadr;
+use blacksenator\fritzsoap\fritzsoap;
+use Andig\FritzAdr\fritzAdr;
 use Andig\ReplyMail\replymail;
 use \SimpleXMLElement;
 use \stdClass;
@@ -625,7 +623,6 @@ function checkUpdates($oldPhonebook, $newPhonebook, $config)
         $reply = $config['reply'];
     }
 
-    $card    = new fritzvCard;
     $eMailer = new replymail;
     $eMailer->setSMTPcredentials($reply);
     $numbers = [];
@@ -651,7 +648,7 @@ function checkUpdates($oldPhonebook, $newPhonebook, $config)
             $email = (string)$contact->telephony->services->email;
             $vip   = $contact->category;
             // assemble vCard from new entry(s)
-            $new_vCard = $card->getvCard($name, $numbers, $email, $vip);
+            $new_vCard = $eMailer->getvCard($name, $numbers, $email, $vip);
             // send new entry as vCard to designated reply adress
             if ($eMailer->sendReply($config['phonebook']['name'], $new_vCard, $name . '.vcf')) {
                 $i++;
@@ -673,7 +670,7 @@ function downloadPhonebookSOAP($config)
     $fritzbox = $config['fritzbox'];
     $phonebook = $config ['phonebook'];
 
-    $client = new TR064($fritzbox['url'], $fritzbox['user'], $fritzbox['password']);
+    $client = new fritzsoap($fritzbox['url'], $fritzbox['user'], $fritzbox['password']);
     $client->getClient('x_contact', 'X_AVM-DE_OnTel:1');
     $result = $client->getPhonebook($phonebook['id']);
     return $result;
@@ -691,21 +688,16 @@ function uploadFritzAdr(SimpleXMLElement $xmlPhonebook, $config)
 {
     // Prepare FTP connection
     $secure = @$config['plainFTP'] ? $config['plainFTP'] : false;
-    $ftp_conn = getFtpConnection($config['url'], $config['user'], $config['password'], $config['fonpix'], $secure);
+    $ftp_conn = getFtpConnection($config['url'], $config['user'], $config['password'], $config['fritzadr'], $secure);
 
     // open a fast in-memory file stream
     $memstream = fopen('php://memory', 'r+');
-    $converter = new convert2fa();
-    $faxContacts = $converter->convert($xmlPhonebook);                  // extracting
-    $numRecords = count($faxContacts);
-    if ($numRecords) {
-        $fritzAdr = new fritzadr();
-        foreach ($faxContacts as $faxContact) {
-            $fritzAdr->addRecord($faxContact);
-        }
-        fputs($memstream, $fritzAdr->getDatabase());
+    $converter = new fritzAdr();
+
+    $faxContacts = $converter->getFAXcontacts($xmlPhonebook);                  // extracting
+    if (count($faxContacts)) {
+        fputs($memstream, $converter->getdBaseData($faxContacts));
         rewind($memstream);
-        //file_put_contents('FritzAdr.dbf', $fritzAdr->getDatabase());
         if (!ftp_fput($ftp_conn, 'fritzadr.dbf', $memstream, FTP_BINARY)) {
             error_log("Error uploading fritzadr.dbf!" . PHP_EOL);
         }
@@ -713,5 +705,5 @@ function uploadFritzAdr(SimpleXMLElement $xmlPhonebook, $config)
     fclose($memstream);
     ftp_close($ftp_conn);
 
-    return $numRecords;
+    return count($faxContacts);
 }

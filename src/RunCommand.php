@@ -31,7 +31,7 @@ class RunCommand extends Command
         if ($input->getOption('image')) {
             $this->uploadImagePreconditions($this->config['fritzbox'], $this->config['phonebook']);
         }
-        
+
         /**
           * begin of insert branch next
           * compare timestamp of CardDAV against last update on Fritz!Box
@@ -43,7 +43,7 @@ class RunCommand extends Command
         if ($this->config['phonebook']['forcedupload'] < 2) {
             error_log("Determine the last change of the FRITZ!Box phonebook");
             $lastUpdate = $recentPhonebook->phonebook->timestamp;          // get timestamp from phonebook
-            error_log("Determine the last change(s) on the CardDAV server(s)");            
+            error_log("Determine the last change(s) on the CardDAV server(s)");
 
             foreach ($this->config['server'] as $server) {                 // determine the youngest modification date
                 $backend = backendProvider($server);
@@ -124,10 +124,9 @@ class RunCommand extends Command
             if (count($this->config['fritzbox']['fritzfons'])) {
                 uploadBackgroundImage($xmlPhonebook, $this->config['fritzbox']);
             }
-            
+
             /**
-              *  begin of insert branch next
-              * fax number upload
+              * begin of insert branch next
               */
             if ($this->config['phonebook']['forcedupload'] < 3) {
                 error_log('Checking to back up newer contacts of the Fritz!Box');
