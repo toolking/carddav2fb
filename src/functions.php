@@ -692,7 +692,7 @@ function uploadFritzAdr(SimpleXMLElement $xmlPhonebook, $config)
 
     // open a fast in-memory file stream
     $memstream = fopen('php://memory', 'r+');
-    $converter = new fritzAdr();
+    $converter = new fritzAdr;
 
     $faxContacts = $converter->getFAXcontacts($xmlPhonebook);                  // extracting
     if (count($faxContacts)) {
