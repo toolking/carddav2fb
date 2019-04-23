@@ -8,7 +8,7 @@ use Andig\FritzBox\Converter;
 use Andig\FritzBox\Api;
 use Andig\FritzBox\BackgroundImage;
 use blacksenator\fritzsoap\fritzsoap;
-use Andig\FritzAdr\fritzAdr;
+use Andig\FritzAdr\fritzadr;
 use Andig\ReplyMail\replymail;
 use \SimpleXMLElement;
 use \stdClass;
@@ -692,7 +692,7 @@ function uploadFritzAdr(SimpleXMLElement $xmlPhonebook, $config)
 
     // open a fast in-memory file stream
     $memstream = fopen('php://memory', 'r+');
-    $converter = new fritzAdr;
+    $converter = new fritzadr;
 
     $faxContacts = $converter->getFAXcontacts($xmlPhonebook);                  // extracting
     if (count($faxContacts)) {

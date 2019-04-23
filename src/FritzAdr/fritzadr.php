@@ -18,7 +18,7 @@ use Andig;
 use \SimpleXMLElement;
 use \stdClass;
 
-class fritzAdr
+class fritzadr
 {
     /**
      * delivers an structured adress array of fax numbers from a designated phone book
