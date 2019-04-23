@@ -38,7 +38,7 @@ class fritzadr
                     $name = $contact->person->realName;
                     $faxnumber = (string)$number;
                     // dBase uses the DOS charset (Codepage 850); htmlspecialchars makes a '&amp;' from '&' must be reset here
-                    $name = str_replace( '&amp;', '&', iconv('UTF-8', 'CP850//TRANSLIT', $name));
+                    $name = str_replace('&amp;', '&', iconv('UTF-8', 'CP850//TRANSLIT', $name));
 
                     $adrRecords[$i]['BEZCHNG'] = $name;            // fullName in field 1
                     $parts = explode(', ', $name);
