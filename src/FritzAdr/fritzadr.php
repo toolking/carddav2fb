@@ -14,9 +14,7 @@ namespace Andig\FritzAdr;
  */
 
 use blacksenator\fritzdbf\fritzdbf;
-use Andig;
 use \SimpleXMLElement;
-use \stdClass;
 
 class fritzadr
 {
