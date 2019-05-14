@@ -1,4 +1,4 @@
-sudo: false
+:latestsudo: false
 
 language: php
 
@@ -56,4 +56,4 @@ jobs:
           script: >
             bash -c "set -xe &&
             docker build --cache-from ${TRAVIS_REPO_SLUG}:latest -t ${TRAVIS_REPO_SLUG}:latest . &&
-            docker push ${TRAVIS_REPO_SLUG}"
+            docker push ${TRAVIS_REPO_SLUG}:latest"
