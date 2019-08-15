@@ -2,13 +2,14 @@
 
 use \Andig\FritzBox\Converter;
 use \PHPUnit\Framework\TestCase;
+use Sabre\VObject;
 
 class ConverterTest extends TestCase
 {
     /** @var Converter */
     public $converter;
 
-    /** @var SimpleXMLElement */
+    /** @var \stdClass */
     public $contact;
 
     public function setUp()
@@ -32,12 +33,12 @@ class ConverterTest extends TestCase
         ];
     }
 
-    private function defaultContact(): stdClass
+    private function defaultContact()
     {
-        $c = new stdClass;
-        $c->uid = 'uid';
-        $c->phone = new stdClass;
-        $c->phone->other = ['1'];
+        $c = new VObject\Component\VCard([
+            'UID'  => 'uid',
+        ]);
+        $c->add('TEL', '1', ['type' => 'other']);
 
         return $c;
     }
@@ -56,7 +57,7 @@ class ConverterTest extends TestCase
 
     public function testSkipContactWithoutPhone()
     {
-        $this->contact->phone = [];
+        unset($this->contact->TEL);
 
         $res = $this->converter->convert($this->contact);
         $this->assertCount(0, $res);
@@ -105,7 +106,8 @@ class ConverterTest extends TestCase
     public function testPropertyReplacement(array $properties, string $realName)
     {
         foreach ($properties as $key => $value) {
-            $this->contact->$key = $value;
+            $sabreKey = strtoupper($key);
+            $this->contact->$sabreKey = $value;
         }
 
         // replacement config
@@ -125,13 +127,12 @@ class ConverterTest extends TestCase
 
     public function testPhoneTypeAreMappedAndOrdered()
     {
-        $this->contact->phone = new stdClass;
-
+        unset($this->contact->TEL);
         $idx = 0;
         $conversions = $this->defaultConfig()['conversions'];
         foreach ($conversions['phoneTypes'] as $key => $value) {
-            $phoneType = sprintf('foo;%s;bar', strtolower($key));
-            $this->contact->phone->$key = [(string)$idx++];
+            //$phoneType = sprintf('foo;%s;bar', strtolower($key));
+            $this->contact->add('TEL',(string)$idx++ , ['type' => $key]);
         }
 
         $res = $this->converter->convert($this->contact);
@@ -150,8 +151,8 @@ class ConverterTest extends TestCase
 
     public function testFaxIsMapped()
     {
-        $this->contact->phone = new stdClass;
-        $this->contact->phone->fax = ['2'];
+        unset($this->contact->TEL);
+        $this->contact->add('TEL', '2', ['type' => 'fax']);
 
         $res = $this->converter->convert($this->contact);
         $this->assertCount(1, $res);
@@ -165,11 +166,11 @@ class ConverterTest extends TestCase
 
     public function testVanityAndQuickdialNumbers()
     {
-        $this->contact->phone = new stdClass;
-        $this->contact->phone->other = ['1'];
-        $this->contact->phone->pref = ['2'];
-        $this->contact->xquickdial = 'quickdial';
-        $this->contact->xvanity = 'vanity';
+        unset($this->contact->TEL);
+        $this->contact->add('TEL', '1', ['type' => 'other']);
+        $this->contact->add('TEL', '2', ['type' => 'pref']);
+        $this->contact->{'X-FB-QUICKDIAL'} = 'quickdial';
+        $this->contact->{'X-FB-VANITY'} = 'vanity';
 
         $res = $this->converter->convert($this->contact);
         $this->assertCount(1, $res);
@@ -190,11 +191,9 @@ class ConverterTest extends TestCase
 
     public function testMoreThan10PhoneNumbers()
     {
-        $type = 'other';
-        $this->contact->phone->$type = [];
-
+        unset($this->contact->TEL);
         for ($i=1; $i<=18; $i++) {
-            $this->contact->phone->$type[] = (string)$i;
+            $this->contact->add('TEL', (string)$i, ['type' => 'other']);
         }
 
         $res = $this->converter->convert($this->contact);
@@ -206,5 +205,26 @@ class ConverterTest extends TestCase
                 $this->assertContains((string)$expect, $contact->telephony->number);
             }
         }
+    }
+
+    public function testSkipPhoneIsEmpty()
+    {
+        unset($this->contact->TEL);
+
+        $res = $this->converter->convert($this->contact);
+        $this->assertCount(0, $res);
+    }
+
+    public function testPhoneWithoutType()
+    {
+        unset($this->contact->TEL);
+        $this->contact->TEL = '123456789';
+
+        $res = $this->converter->convert($this->contact);
+        $this->assertCount(1, $res);
+
+        // default type = 'other'
+        $numberType = $res[0]->telephony->children()[0];
+        $this->assertEquals('other', (string)$numberType['type']);
     }
 }

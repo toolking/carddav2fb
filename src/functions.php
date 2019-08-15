@@ -3,12 +3,11 @@
 namespace Andig;
 
 use Andig\CardDav\Backend;
-use Andig\Vcard\Parser;
 use Andig\FritzBox\Converter;
 use Andig\FritzBox\Api;
 use Andig\FritzBox\BackgroundImage;
+use Sabre\VObject\Document;
 use \SimpleXMLElement;
-use \stdClass;
 
 define("MAX_IMAGE_COUNT", 150); // see: https://avm.de/service/fritzbox/fritzbox-7490/wissensdatenbank/publication/show/300_Hintergrund-und-Anruferbilder-in-FRITZ-Fon-einrichten/
 
@@ -34,7 +33,7 @@ function backendProvider(array $config): Backend
  *
  * @param Backend $backend
  * @param callable $callback
- * @return array
+ * @return mixed[]
  */
 function download(Backend $backend, $substitutes, callable $callback=null): array
 {
@@ -83,7 +82,7 @@ function getFtpConnection($url, $user, $password, $directory, $secure)
 /**
  * upload image files via ftp to the fritzbox fonpix directory
  *
- * @param stdClass[] $vcards downloaded vCards
+ * @param mixed[] $vcards downloaded vCards
  * @param array $config
  * @param array $phonebook
  * @param callable $callback
@@ -93,6 +92,7 @@ function uploadImages(array $vcards, array $config, array $phonebook, callable $
 {
     $countUploadedImages = 0;
     $countAllImages = 0;
+    $vcardImage = '';
     $mapFTPUIDtoFTPImageName = [];                      // "9e40f1f9-33df-495d-90fe-3a1e23374762" => "9e40f1f9-33df-495d-90fe-3a1e23374762_190106123906.jpg"
     $timestampPostfix = substr(date("YmdHis"), 2);      // timestamp, e.g., 190106123906
 
@@ -116,46 +116,73 @@ function uploadImages(array $vcards, array $config, array $phonebook, callable $
         $mapFTPUIDtoFTPImageName[$ftpUid] = $ftpFile;
     }
 
+    /** @var \stdClass $vcard */
     foreach ($vcards as $vcard) {
         if (is_callable($callback)) {
             ($callback)();
         }
 
-        if (isset($vcard->rawPhoto)) {                                     // skip vCards without image
-            if (preg_match("/JPEG/", strtoupper(substr($vcard->photoData, 0, 256)))) {     // Fritz!Box only accept jpg-files
-                $countAllImages++;
+        if (!isset($vcard->PHOTO)) {                            // skip vCard without image
+            continue;
+        }
 
-                // Check if we can skip upload
-                $newFTPimage = sprintf('%1$s_%2$s.jpg', $vcard->uid, $timestampPostfix);
-                if (array_key_exists($vcard->uid, $mapFTPUIDtoFTPImageName)) {
-                    $currentFTPimage = $mapFTPUIDtoFTPImageName[$vcard->uid];
-                    if (ftp_size($ftp_conn, $currentFTPimage) == strlen($vcard->rawPhoto)) {
-                        // No upload needed, but store old image URL in vCard
-                        $vcard->imageURL = $imgPath . $currentFTPimage;
-                        continue;
-                    }
-                    // we already have an old image, but the new image differs in size
-                    ftp_delete($ftp_conn, $currentFTPimage);
-                }
+        $uid = (string)$vcard->UID;
 
-                // Upload new image file
-                $memstream = fopen('php://memory', 'r+');     // we use a fast in-memory file stream
-                fputs($memstream, $vcard->rawPhoto);
-                rewind($memstream);
-
-                // upload new image
-                if (ftp_fput($ftp_conn, $newFTPimage, $memstream, FTP_BINARY)) {
-                    $countUploadedImages++;
-                    // upload of new image done, now store new image URL in vCard (new Random Postfix!)
-                    $vcard->imageURL = $imgPath . $newFTPimage;
-                } else {
-                    error_log(PHP_EOL."Error uploading $newFTPimage.");
-                    unset($vcard->rawPhoto);                           // no wrong link will set in phonebook
-                    unset($vcard->imageURL);                           // no wrong link will set in phonebook
-                }
-                fclose($memstream);
+        // Occurs when embedding was not possible during download (for example, no access to linked data)
+        if (preg_match("/^http/", $vcard->PHOTO)) {             // if the embed failed
+            error_log(sprintf(PHP_EOL . 'The image for UID %s can not be accessed! ', $uid));
+            continue;
+        }
+        // Fritz!Box only accept jpg-files
+        $version = (string)$vcard->VERSION;
+        if ($version == '3.0') {
+            if ($vcard->PHOTO['TYPE'] != 'JPEG') {
+                continue;
+            } else {
+                $vcardImage = (string)$vcard->PHOTO;
+            }
+        } elseif ($version == '4.0') {                       // see: https://github.com/sabre-io/vobject/issues/458
+            $value = explode(',', (string)$vcard->PHOTO, 2);
+            if (!preg_match("/jpeg/", $value[0])) {
+                continue;
+            } else {
+                if (!$vcardImage = base64_decode($value[1])) {      // PONR: I don´t trust this way of fetching data
+                    continue;
+                };
             }
         }
+
+        $countAllImages++;
+
+        // Check if we can skip upload
+        $newFTPimage = sprintf('%1$s_%2$s.jpg', $uid, $timestampPostfix);
+        if (array_key_exists($uid, $mapFTPUIDtoFTPImageName)) {
+            $currentFTPimage = $mapFTPUIDtoFTPImageName[$uid];
+            if (ftp_size($ftp_conn, $currentFTPimage) == strlen($vcardImage)) {
+                // No upload needed, but store old image URL in vCard
+                $vcard->IMAGEURL = $imgPath . $currentFTPimage;
+                continue;
+            }
+            // we already have an old image, but the new image differs in size
+            ftp_delete($ftp_conn, $currentFTPimage);
+        }
+
+        // Upload new image file
+        $memstream = fopen('php://memory', 'r+');     // we use a fast in-memory file stream
+        fputs($memstream, $vcardImage);
+        rewind($memstream);
+
+        // upload new image
+        if (ftp_fput($ftp_conn, $newFTPimage, $memstream, FTP_BINARY)) {
+            $countUploadedImages++;
+            // upload of new image done, now store new image URL in vCard (new Random Postfix!)
+            $vcard->IMAGEURL = $imgPath . $newFTPimage;
+        } else {
+            error_log(PHP_EOL."Error uploading $newFTPimage.");
+            unset($vcard->PHOTO);                              // no wrong link will set in phonebook
+            unset($vcard->IMAGEURL);                           // no wrong link will set in phonebook
+        }
+        fclose($memstream);
     }
     ftp_close($ftp_conn);
 
@@ -173,37 +200,38 @@ EOD
 /**
  * Dissolve the groups of iCloud contacts
  *
- * @param stdClass[] $vcards
- * @return stdClass[]
+ * @param mixed[] $vcards
+ * @return mixed[]
  */
 function dissolveGroups(array $vcards): array
 {
     $groups = [];
 
     // separate iCloud groups
+    /** @var \stdClass $vcard */
     foreach ($vcards as $key => $vcard) {
-        if (isset($vcard->xabsmember)) {
-            if (array_key_exists($vcard->fullname, $groups)) {
-                $groups[$vcard->fullname] = array_merge($groups[$vcard->fullname], $vcard->xabsmember);
-            } else {
-                $groups[$vcard->fullname] = $vcard->xabsmember;
+        if (isset($vcard->{'X-ADDRESSBOOKSERVER-KIND'})) {
+            if ($vcard->{'X-ADDRESSBOOKSERVER-KIND'} == 'group') {      // identifier
+                foreach ($vcard->{'X-ADDRESSBOOKSERVER-MEMBER'} as $member) {
+                    $member = str_replace(['urn:', 'uuid:'], ['', ''], (string)$member);
+                    $groups[(string)$vcard->FN][] = $member;
+                }
+                unset($vcards[$key]);                                   // delete this vCard
             }
-            unset($vcards[$key]);
-            continue;
         }
     }
-
-    $vcards = array_values($vcards);
 
     // assign group memberships
     foreach ($vcards as $vcard) {
         foreach ($groups as $group => $members) {
-            if (in_array($vcard->uid, $members)) {
-                if (!isset($vcard->group)) {
-                    $vcard->group = [];
+            if (in_array((string)$vcard->UID, $members)) {
+                if (isset($vcard->GROUPS)) {
+                    $assignedGroups = $vcard->GROUPS->getParts();   // get array of values
+                    $assignedGroups[] = $group;                     // add the new value
+                    $vcard->GROUPS->setParts($assignedGroups);      // set the values
+                } else {
+                    $vcard->GROUPS = $group;                        // set the new value
                 }
-                $vcard->group = $group;
-                break;
             }
         }
     }
@@ -214,9 +242,9 @@ function dissolveGroups(array $vcards): array
 /**
  * Filter included/excluded vcards
  *
- * @param stdClass[] $vcards
+ * @param mixed[] $vcards
  * @param array $filters
- * @return stdClass[]
+ * @return mixed[]
  */
 function filter(array $vcards, array $filters): array
 {
@@ -225,7 +253,6 @@ function filter(array $vcards, array $filters): array
 
     if (countFilters($includeFilter)) {
         $step1 = [];
-
         foreach ($vcards as $vcard) {
             if (filtersMatch($vcard, $includeFilter)) {
                 $step1[] = $vcard;
@@ -234,7 +261,7 @@ function filter(array $vcards, array $filters): array
     } else {
         // filter defined but empty sub-rules?
         if (count($includeFilter)) {
-            error_log('Include filter empty- including all vcards');
+            error_log('Include filter is empty: including all downloaded vCards');
         }
 
         // include all by default
@@ -276,49 +303,18 @@ function countFilters(array $filters): int
 }
 
 /**
- * Check a list of filters against a card
+ * Check a list of filters against the vcard properties CATEGORIES and/or GROUPS
  *
- * @param stdClass $vcard
+ * @param Document $vcard
  * @param array $filters
  * @return bool
  */
-function filtersMatch(stdClass $vcard, array $filters): bool
+function filtersMatch(Document $vcard, array $filters): bool
 {
     foreach ($filters as $attribute => $values) {
-        if (isset($vcard->$attribute)) {
-            if (filterMatches($vcard->$attribute, $values)) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
-/**
- * Check a filter against a single attribute
- *
- * @param mixed $attribute
- * @param mixed $filterValues
- * @return bool
- */
-function filterMatches($attribute, $filterValues): bool
-{
-    if (!is_array($filterValues)) {
-        $filterValues = [$filterValues];
-    }
-
-    foreach ($filterValues as $filter) {
-        if (is_array($attribute)) {
-            // check if any attribute matches
-            foreach ($attribute as $childAttribute) {
-                if ($childAttribute === $filter) {
-                    return true;
-                }
-            }
-        } else {
-            // check if simple attribute matches
-            if ($attribute === $filter) {
+        $param = strtoupper($attribute);
+        if (isset($vcard->$param)) {
+            if (array_intersect($vcard->$param->getParts(), $values)) {
                 return true;
             }
         }
@@ -330,7 +326,7 @@ function filterMatches($attribute, $filterValues): bool
 /**
  * Export cards to fritzbox xml
  *
- * @param array $cards
+ * @param Document[] $cards
  * @param array $conversions
  * @return SimpleXMLElement     the XML phone book in Fritz Box format
  */
@@ -419,7 +415,6 @@ function uploadPhonebook(SimpleXMLElement $xmlPhonebook, array $config)
     }
 }
 
-
 /**
  * Downloads the phone book from Fritzbox
  *
@@ -429,7 +424,6 @@ function uploadPhonebook(SimpleXMLElement $xmlPhonebook, array $config)
  */
 function downloadPhonebook(array $fritzbox, array $phonebook)
 {
-
     $fritz = new Api($fritzbox['url']);
     $fritz->setAuth($fritzbox['user'], $fritzbox['password']);
     $fritz->mergeClientOptions($fritzbox['http'] ?? []);
@@ -450,12 +444,11 @@ function downloadPhonebook(array $fritzbox, array $phonebook)
     return $xmlPhonebook;
 }
 
-
 /**
  * Get quickdial and vanity special attributes from given XML phone book
  *
  * @param   SimpleXMLElement                $xmlPhonebook
- * @return  array|array<string, object>     [] or map with {phonenumber@CardDavUID}=>SimpleXMLElement-Attributes
+ * @return  array|array<string, mixed>     [] or map with {phonenumber@CardDavUID}=>SimpleXMLElement-Attributes
  */
 function getPhoneNumberAttributes(SimpleXMLElement $xmlPhonebook)
 {
@@ -475,7 +468,6 @@ function getPhoneNumberAttributes(SimpleXMLElement $xmlPhonebook)
     }
     return $specialAttributes;
 }
-
 
 /**
  * Restore special attributes (quickdial, vanity) in given target phone book
@@ -505,7 +497,6 @@ function mergePhoneNumberAttributes(SimpleXMLElement $xmlTargetPhoneBook, array 
     return $xmlTargetPhoneBook;
 }
 
-
 /**
  * Build unique key with normalized phone number to lookup phonebook attributes
  * normalizing number means: remove all non-"+" and non-number characters like SPACE, MINUS, SLASH...
@@ -518,7 +509,6 @@ function generateUniqueKey(string $number, string $carddav_uid)
 {
     return preg_replace("/[^\+0-9]/", "", $number)."@".$carddav_uid;
 }
-
 
 /**
  * Check if special attributes already set (e.g., via CardDav extension 'X-FB-QUICKDIAL' / 'X-FB-VANITY')
@@ -569,6 +559,8 @@ function getQuickdials(SimpleXMLElement $xmlPhonebook)
             }
         }
     }
+    ksort($quickdialNames);                                 // ascending: lowest quickdial first
+
     return $quickdialNames;
 }
 
@@ -586,6 +578,11 @@ function uploadBackgroundImage($phonebook, array $config)
         error_log('No quickdial numbers are set for a background image upload');
         return;
     }
+    if (key($quickdials) > 9) {    // usual the pointer should on the first element; with 7.3.*: array_key_first()
+        error_log('Quickdial numbers out of range for a background image upload');
+        return;
+    }
+
     $image = new BackgroundImage();
     $image->uploadImage($quickdials, $config);
 }
