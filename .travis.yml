@@ -1,4 +1,4 @@
-:latestsudo: false
+sudo: false
 
 language: php
 
@@ -28,7 +28,7 @@ jobs:
       install:
         - composer install
       script:
-        - phpunit
+        - vendor/bin/phpunit
     - # parallel
       install:
         - rm -f ~/.phpenv/versions/$(phpenv version-name)/etc/conf.d/xdebug.ini
