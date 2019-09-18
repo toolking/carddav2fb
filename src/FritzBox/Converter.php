@@ -10,9 +10,6 @@ class Converter
     private $config;
     private $configImagePath;
 
-    /** @var mixed */
-    private $card;
-
     /** @var SimpleXMLElement */
     private $contact;
 

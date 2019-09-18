@@ -3,6 +3,7 @@
 namespace Andig;
 
 use Andig\CardDav\Backend;
+use Andig\CardDav\VcardFile;
 use Andig\FritzBox\Converter;
 use Andig\FritzBox\Api;
 use Andig\FritzBox\BackgroundImage;
@@ -28,17 +29,23 @@ function backendProvider(array $config): Backend
     return $backend;
 }
 
+function localProvider($fullpath)
+{
+    $local = new VcardFile($fullpath);
+
+    return $local;
+}
+
 /**
  * Download vcards from CardDAV server
  *
  * @param Backend $backend
  * @param callable $callback
- * @return mixed[]
+ * @return Document[]
  */
-function download(Backend $backend, $substitutes, callable $callback=null): array
+function download(Backend $backend, callable $callback=null): array
 {
     $backend->setProgress($callback);
-    $backend->setSubstitutes($substitutes);
     return $backend->getVcards();
 }
 
@@ -82,7 +89,7 @@ function getFtpConnection($url, $user, $password, $directory, $secure)
 /**
  * upload image files via ftp to the fritzbox fonpix directory
  *
- * @param mixed[] $vcards downloaded vCards
+ * @param Document[] $vcards downloaded vCards
  * @param array $config
  * @param array $phonebook
  * @param callable $callback

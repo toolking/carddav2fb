@@ -13,6 +13,7 @@ use Symfony\Component\Console\Helper\ProgressBar;
 class RunCommand extends Command
 {
     use ConfigTrait;
+    use DownloadTrait;
 
     protected function configure()
     {
@@ -29,49 +30,32 @@ class RunCommand extends Command
 
         // we want to check for image upload show stoppers as early as possible
         if ($input->getOption('image')) {
-            $this->uploadImagePreconditions($this->config['fritzbox'], $this->config['phonebook']);
+            $this->checkUploadImagePreconditions($this->config['fritzbox'], $this->config['phonebook']);
         }
 
-        $quantity = 0;
-        $vcards = [];
-        $xcards = [];
-        $substitutes = ($input->getOption('image')) ? ['PHOTO'] : [];
-
-        foreach ($this->config['server'] as $server) {
-            error_log("Downloading vCard(s) from account ".$server['user']);
-            $backend = backendProvider($server);
-
-            $progress = new ProgressBar($output);
-            $progress->start();
-            $xcards = download($backend, $substitutes, function () use ($progress) {
-                $progress->advance();
-            });
-            $progress->finish();
-
-            $vcards = array_merge($vcards, $xcards);
-            $quantity += count($xcards);
-            error_log(sprintf("\nDownloaded %d vCard(s)", $quantity));
-        }
+        $vcards = $this->downloadAllProviders($output, $input->getOption('image'));
+        error_log(sprintf("Downloaded %d vCard(s) in total", count($vcards)));
 
         // dissolve
+        $quantity = count($vcards);
         error_log("Dissolving groups (e.g. iCloud)");
-        $cards = dissolveGroups($vcards);
-        $remain = count($cards);
-        error_log(sprintf("Dissolved %d group(s)", $quantity - $remain));
+        $vcards = dissolveGroups($vcards);
+        error_log(sprintf("Dissolved %d group(s)", $quantity - count($vcards)));
 
         // filter
-        error_log(sprintf("Filtering %d vCard(s)", $remain));
+        $quantity = count($vcards);
+        error_log(sprintf("Filtering %d vCard(s)", $quantity));
         $filters = $this->config['filters'];
-        $filtered = filter($cards, $filters);
-        error_log(sprintf("Filtered out %d vCard(s)", $remain - count($filtered)));
+        $vcards = filter($vcards, $filters);
+        error_log(sprintf("Filtered out %d vCard(s)", $quantity - count($vcards)));
 
         // image upload
         if ($input->getOption('image')) {
             error_log("Detaching and uploading image(s)");
 
             $progress = new ProgressBar($output);
-            $progress->start(count($filtered));
-            $pictures = uploadImages($filtered, $this->config['fritzbox'], $this->config['phonebook'], function () use ($progress) {
+            $progress->start(count($vcards));
+            $pictures = uploadImages($vcards, $this->config['fritzbox'], $this->config['phonebook'], function () use ($progress) {
                 $progress->advance();
             });
             $progress->finish();
@@ -84,10 +68,10 @@ class RunCommand extends Command
         }
 
         // fritzbox format
-        $xmlPhonebook = exportPhonebook($filtered, $this->config);
-        error_log(sprintf(PHP_EOL."Converted %d vCard(s)", count($filtered)));
+        $xmlPhonebook = exportPhonebook($vcards, $this->config);
+        error_log(sprintf(PHP_EOL."Converted %d vCard(s)", count($vcards)));
 
-        if (!count($filtered)) {
+        if (!count($vcards)) {
             error_log("Phonebook empty - skipping upload");
             return null;
         }
@@ -104,13 +88,12 @@ class RunCommand extends Command
         }
     }
 
-
     /**
      * checks if preconditions for upload images are OK
      *
      * @return            mixed     (true if all preconditions OK, error string otherwise)
      */
-    private function uploadImagePreconditions($configFritz, $configPhonebook)
+    private function checkUploadImagePreconditions($configFritz, $configPhonebook)
     {
         if (!function_exists("ftp_connect")) {
             throw new \Exception(
