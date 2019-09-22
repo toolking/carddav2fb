@@ -16,6 +16,7 @@ This is an entirely simplified version of https://github.com/jens-maus/carddav2f
   * if more than nine phone numbers are included, the contact will be divided into a corresponding number of phonebook entries (any existing email addresses are assigned to the first set [there is no quantity limit!])
   * phone numbers are sorted by type. The order of the conversion values ('phoneTypes') determines the order in the phone book entry
   * the contact's UID of the CardDAV server is added to the phonebook entry (not visible in the FRITZ! Box GUI)
+  * automatically preserves QuickDial and Vanity attributes of phone numbers set in FRITZ!Box Web GUI. Works without config. These data are saved separately in the internal FRITZ!Box memory under `../FRITZ/mediabox/Atrributes.csv` from loss. The legacy way of configuring your CardDav server with X-FB-QUICKDIAL/X-FB-VANITY is no longer supported.
   * generates an image with keypad and designated quickdial numbers (2-9), which can be uploaded to designated handhelds (see details below)
 
 ## Requirements
@@ -55,7 +56,7 @@ edit `config.example.php` and save as `config.php`
 
 <img align="right" src="assets/fritzfon.png"/>
 
-### Upload Fritz!FON background image
+### Upload FRITZ!Fon background image
 
 Using the `background-image` command it is possible to upload the quickdial numbers as background image to FRITZ!Fon (nothing else!)
 
@@ -94,7 +95,7 @@ afterwards).
 
 Without a command, the container entrypoint will enter an endless loop,
 repeatedly executing `carddav2fb run` in given intervals. This allows
-automatic, regular updates of your FritzBox's phonebook.
+automatic, regular updates of your FRITZ!Box's phonebook.
 
 
 ## License
