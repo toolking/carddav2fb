@@ -72,7 +72,7 @@ class RunCommand extends Command
 
         // fritzbox format
         $xmlPhonebook = exportPhonebook($vcards, $this->config);
-        error_log(sprintf(PHP_EOL."Converted %d vCard(s)", count($vcards)));
+        error_log(sprintf("Converted %d vCard(s)", count($vcards)));
 
         if (!count($vcards)) {
             error_log("Phonebook empty - skipping upload");
@@ -90,6 +90,24 @@ class RunCommand extends Command
         // uploading background image
         if (count($this->config['fritzbox']['fritzfons']) && $this->config['phonebook']['id'] == 0) {
             uploadBackgroundImage($savedAttributes, $this->config['fritzbox']);
+        }
+
+        // saving newer phonebook numbers
+        if ($this->config['phonebook']['forcedupload'] == false) {
+            error_log('Checking to back up newer contacts of the Fritz!Box');
+            $i = checkUpdates($recentPhonebook, $xmlPhonebook, $this->config);
+            if ($i) {
+                error_log(sprintf("Saved %d contact(s)", $i));
+            }
+        }
+
+        // uploading fax adressbook
+        if (isset($this->config['fritzbox']['fritzadr'])) {
+            error_log('Selecting and uploading fax number(s) for FRITZ!fax');
+            $i = uploadFritzAdr($xmlPhonebook, $this->config['fritzbox']);
+            if ($i) {
+                error_log(sprintf("Uploaded %d fax number entries into fritzadr.dbf", $i));
+            }
         }
 
         return 0;
