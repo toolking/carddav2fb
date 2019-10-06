@@ -1,14 +1,6 @@
 # CardDAV contacts import for AVM FRITZ!Box
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=BB3W3WH7GVSNW)
 
-This is an entirely simplified version of https://github.com/jens-maus/carddav2fb.
-Wherever appropriate, up-to-date and proven libraries and tools are used:
- * library integration/versioning with [Composer](https://getcomposer.org/)
- * server access (CardDAV and FRITZ!Box) with [Guzzle](http://docs.guzzlephp.org/en/stable/overview.html)
- * vCard handling with [sabre](http://sabre.io/vobject/vcard/)
- * test cases with [PHPUnit](https://phpunit.de/)
- * ... (see [composer.json](https://github.com/andig/carddav2fb/blob/master/composer.json) for more)
-
 ## Features
 
   * download from any number of CardDAV servers
@@ -25,7 +17,7 @@ Wherever appropriate, up-to-date and proven libraries and tools are used:
 
 ## Requirements
 
-  * PHP >7.1 (`apt-get install php7.1 php7.1-curl php7.1-mbstring php7.1-xml php7.1-gd`)
+  * PHP >7.1 (php7.1 php7.1-curl php7.1-mbstring php7.1-xml php7.1-gd)
   * Composer (follow the installation guide at https://getcomposer.org/download/)
 
 ## Installation
