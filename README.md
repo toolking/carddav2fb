@@ -17,7 +17,7 @@
 
 ## Requirements
 
-  * PHP >7.1 (php7.1 php7.1-curl php7.1-mbstring php7.1-xml php7.1-gd)
+  * PHP >7.1 (php php-curl php-mbstring php-xml php-gd)
   * Composer (follow the installation guide at https://getcomposer.org/download/)
 
 ## Installation
