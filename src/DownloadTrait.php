@@ -105,7 +105,7 @@ trait DownloadTrait
 
         error_log(sprintf("Filtering %d vCard(s)", $quantity));
         $vcards = filter($vcards, $this->config['filters']);
-        error_log(sprintf("Filtered out %d vCard(s)", $quantity - count($vcards)));
+        error_log(sprintf("Filtered %d vCard(s)", $quantity - count($vcards)));
 
         return $vcards;
     }
