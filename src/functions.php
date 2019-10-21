@@ -33,7 +33,6 @@ function backendProvider(array $config): Backend
 function localProvider($fullpath)
 {
     $local = new VcardFile($fullpath);
-
     return $local;
 }
 
