@@ -22,7 +22,8 @@ class DownloadCommand extends Command
             ->addArgument('filename', InputArgument::REQUIRED, 'raw vcards file (VCF)')
             ->addOption('dissolve', 'd', InputOption::VALUE_NONE, 'dissolve groups')
             ->addOption('filter', 'f', InputOption::VALUE_NONE, 'filter vCards')
-            ->addOption('image', 'i', InputOption::VALUE_NONE, 'download images');
+            ->addOption('image', 'i', InputOption::VALUE_NONE, 'download images')
+            ->addOption('local', 'l', InputOption::VALUE_OPTIONAL|InputOption::VALUE_IS_ARRAY, 'local file(s)');
 
         $this->addConfig();
     }
@@ -36,23 +37,19 @@ class DownloadCommand extends Command
             $this->checkUploadImagePreconditions($this->config['fritzbox'], $this->config['phonebook']);
         }
 
-        $vcards = $this->downloadAllProviders($output, $input->getOption('image'));
+        // download from server or local files
+        $local = $input->getOption('local');
+        $vcards = $this->downloadAllProviders($output, $input->getOption('image'), $local);
         error_log(sprintf("Downloaded %d vCard(s) in total", count($vcards)));
 
         // dissolve
         if ($input->getOption('dissolve')) {
-            $quantity = count($vcards);
-            error_log("Dissolving groups (e.g. iCloud)");
-            $vcards = dissolveGroups($vcards);
-            error_log(sprintf("Dissolved %d group(s)", $quantity - count($vcards)));
+            $vcards = $this->processGroups($vcards);
         }
 
         // filter
         if ($input->getOption('filter')) {
-            $quantity = count($vcards);
-            error_log(sprintf("Filtering %d vCard(s)", $quantity));
-            $vcards = filter($vcards, $this->config['filters']);
-            error_log(sprintf("Filtered out %d vCard(s)", $quantity - count($vcards)));
+            $vcards = $this->processFilters($vcards);
         }
 
         // save to file

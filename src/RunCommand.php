@@ -19,7 +19,8 @@ class RunCommand extends Command
     {
         $this->setName('run')
             ->setDescription('Download, convert and upload - all in one')
-            ->addOption('image', 'i', InputOption::VALUE_NONE, 'download images');
+            ->addOption('image', 'i', InputOption::VALUE_NONE, 'download images')
+            ->addOption('local', 'l', InputOption::VALUE_OPTIONAL|InputOption::VALUE_IS_ARRAY, 'local file(s)');
 
         $this->addConfig();
     }
@@ -39,26 +40,19 @@ class RunCommand extends Command
         $recentPhonebook = downloadPhonebook($this->config['fritzbox'], $this->config['phonebook']);
         if (count($savedAttributes = uploadAttributes($recentPhonebook, $this->config))) {
             error_log('Phone numbers with special attributes saved');
-        } else {                        // no attributes are set in the FRITZ!Box or lost -> try to download them
+        } else {
+            // no attributes are set in the FRITZ!Box or lost -> try to download them
             $savedAttributes = downloadAttributes($this->config['fritzbox']);   // try to get last saved attributes
         }
 
-        // download from server or lokal files
-        $vcards = $this->downloadAllProviders($output, $input->getOption('image'));
+        // download from server or local files
+        $local = $input->getOption('local');
+        $vcards = $this->downloadAllProviders($output, $input->getOption('image'), $local);
         error_log(sprintf("Downloaded %d vCard(s) in total", count($vcards)));
 
-        // dissolve
-        $quantity = count($vcards);
-        error_log("Dissolving groups (e.g. iCloud)");
-        $vcards = dissolveGroups($vcards);
-        error_log(sprintf("Dissolved %d group(s)", $quantity - count($vcards)));
-
-        // filter
-        $quantity = count($vcards);
-        error_log(sprintf("Filtering %d vCard(s)", $quantity));
-        $filters = $this->config['filters'];
-        $vcards = filter($vcards, $filters);
-        error_log(sprintf("Filtered out %d vCard(s)", $quantity - count($vcards)));
+        // process groups & filters
+        $vcards = $this->processGroups($vcards);
+        $vcards = $this->processFilters($vcards);
 
         // image upload
         if ($input->getOption('image')) {

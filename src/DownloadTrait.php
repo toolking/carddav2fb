@@ -42,13 +42,14 @@ trait DownloadTrait
      *
      * @param OutputInterface $output
      * @param bool $downloadImages
+     * @param string[] $local
      * @return Document[]
      */
-    public function downloadAllProviders(OutputInterface $output, bool $downloadImages): array
+    public function downloadAllProviders(OutputInterface $output, bool $downloadImages, array $local = []): array
     {
         $vcards = [];
 
-        foreach ($this->config['local'] as $file) {
+        foreach ($local as $file) {
             error_log("Reading vCard(s) from file ".$file);
 
             $provider = localProvider($file);
@@ -71,6 +72,40 @@ trait DownloadTrait
             error_log(sprintf("\nDownloaded %d vCard(s)", count($cards)));
             $vcards = array_merge($vcards, $cards);
         }
+
+        return $vcards;
+    }
+
+    /**
+     * Dissolve the groups of iCloud contacts
+     *
+     * @param mixed[] $vcards
+     * @return mixed[]
+     */
+    public function processGroups(array $vcards): array
+    {
+        $quantity = count($vcards);
+
+        error_log("Dissolving groups (e.g. iCloud)");
+        $vcards = dissolveGroups($vcards);
+        error_log(sprintf("Dissolved %d group(s)", $quantity - count($vcards)));
+
+        return $vcards;
+    }
+
+    /**
+     * Filter included/excluded vcards
+     *
+     * @param mixed[] $vcards
+     * @return mixed[]
+     */
+    public function processFilters(array $vcards): array
+    {
+        $quantity = count($vcards);
+
+        error_log(sprintf("Filtering %d vCard(s)", $quantity));
+        $vcards = filter($vcards, $this->config['filters']);
+        error_log(sprintf("Filtered %d vCard(s)", $quantity - count($vcards)));
 
         return $vcards;
     }
