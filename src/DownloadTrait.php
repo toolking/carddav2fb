@@ -75,4 +75,38 @@ trait DownloadTrait
 
         return $vcards;
     }
+
+    /**
+     * Dissolve the groups of iCloud contacts
+     *
+     * @param mixed[] $vcards
+     * @return mixed[]
+     */
+    public function processGroups(array $vcards): array
+    {
+        $quantity = count($vcards);
+
+        error_log("Dissolving groups (e.g. iCloud)");
+        $vcards = dissolveGroups($vcards);
+        error_log(sprintf("Dissolved %d group(s)", $quantity - count($vcards)));
+
+        return $vcards;
+    }
+
+    /**
+     * Filter included/excluded vcards
+     *
+     * @param mixed[] $vcards
+     * @return mixed[]
+     */
+    public function processFilters(array $vcards): array
+    {
+        $quantity = count($vcards);
+
+        error_log(sprintf("Filtering %d vCard(s)", $quantity));
+        $vcards = filter($vcards, $this->config['filters']);
+        error_log(sprintf("Filtered out %d vCard(s)", $quantity - count($vcards)));
+
+        return $vcards;
+    }
 }

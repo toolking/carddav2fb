@@ -50,18 +50,9 @@ class RunCommand extends Command
         $vcards = $this->downloadAllProviders($output, $input->getOption('image'), $local);
         error_log(sprintf("Downloaded %d vCard(s) in total", count($vcards)));
 
-        // dissolve
-        $quantity = count($vcards);
-        error_log("Dissolving groups (e.g. iCloud)");
-        $vcards = dissolveGroups($vcards);
-        error_log(sprintf("Dissolved %d group(s)", $quantity - count($vcards)));
-
-        // filter
-        $quantity = count($vcards);
-        error_log(sprintf("Filtering %d vCard(s)", $quantity));
-        $filters = $this->config['filters'];
-        $vcards = filter($vcards, $filters);
-        error_log(sprintf("Filtered out %d vCard(s)", $quantity - count($vcards)));
+        // process groups & filters
+        $vcards = $this->processGroups($vcards);
+        $vcards = $this->processFilters($vcards);
 
         // image upload
         if ($input->getOption('image')) {

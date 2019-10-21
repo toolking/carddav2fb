@@ -44,18 +44,12 @@ class DownloadCommand extends Command
 
         // dissolve
         if ($input->getOption('dissolve')) {
-            $quantity = count($vcards);
-            error_log("Dissolving groups (e.g. iCloud)");
-            $vcards = dissolveGroups($vcards);
-            error_log(sprintf("Dissolved %d group(s)", $quantity - count($vcards)));
+            $vcards = $this->processGroups($vcards);
         }
 
         // filter
         if ($input->getOption('filter')) {
-            $quantity = count($vcards);
-            error_log(sprintf("Filtering %d vCard(s)", $quantity));
-            $vcards = filter($vcards, $this->config['filters']);
-            error_log(sprintf("Filtered out %d vCard(s)", $quantity - count($vcards)));
+            $vcards = $this->processFilters($vcards);
         }
 
         // save to file
