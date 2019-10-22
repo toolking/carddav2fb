@@ -10,6 +10,7 @@ RUN set -xe && \
         php7-cli \
         php7-curl \
         php7-dom \
+        php7-ftp \
         php7-mbstring \
         php7-simplexml \
         php7-tokenizer \
