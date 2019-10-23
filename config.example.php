@@ -76,7 +76,7 @@ $config = [
             '{lastname}, {prefix} {firstname}',
             '{lastname}, {nickname}',
             '{lastname}, {firstname}',
-            '{organization}',
+            '{org}',
             '{fullname}'
         ],
         /**
