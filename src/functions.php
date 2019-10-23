@@ -11,7 +11,8 @@ use Andig\FritzBox\Restorer;
 use Sabre\VObject\Document;
 use \SimpleXMLElement;
 
-define("MAX_IMAGE_COUNT", 150); // see: https://avm.de/service/fritzbox/fritzbox-7490/wissensdatenbank/publication/show/300_Hintergrund-und-Anruferbilder-in-FRITZ-Fon-einrichten/
+// see: https://avm.de/service/fritzbox/fritzbox-7490/wissensdatenbank/publication/show/300_Hintergrund-und-Anruferbilder-in-FRITZ-Fon-einrichten/
+define("MAX_IMAGE_COUNT", 150);
 
 /**
  * Initialize backend from configuration
@@ -474,9 +475,23 @@ function uploadPhonebook(SimpleXMLElement $xmlPhonebook, array $config)
     ];
 
     $result = $fritz->postFile($formfields, $filefields); // send the command to store new phonebook
-    if (strpos($result, 'Das Telefonbuch der FRITZ!Box wurde wiederhergestellt') === false) {
+    if (uploadSuccessful($result)) {
         throw new \Exception('Upload failed');
     }
+}
+
+/**
+ * Check if upload was successful
+ *
+ * @param string $msg FRITZ!Box message
+ * @return bool
+ */
+function uploadSuccessful(string $msg): bool
+{
+    $success =
+        strpos($result, 'Das Telefonbuch der FRITZ!Box wurde wiederhergestellt') !== false ||
+        strpos($result, 'FRITZ!Box telephone book restored') !== false;
+    return $success;
 }
 
 /**
