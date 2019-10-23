@@ -475,7 +475,7 @@ function uploadPhonebook(SimpleXMLElement $xmlPhonebook, array $config)
     ];
 
     $result = $fritz->postFile($formfields, $filefields); // send the command to store new phonebook
-    if (uploadSuccessful($result)) {
+    if (!uploadSuccessful($result)) {
         throw new \Exception('Upload failed');
     }
 }
