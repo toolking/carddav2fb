@@ -489,8 +489,8 @@ function uploadPhonebook(SimpleXMLElement $xmlPhonebook, array $config)
 function uploadSuccessful(string $msg): bool
 {
     $success =
-        strpos($result, 'Das Telefonbuch der FRITZ!Box wurde wiederhergestellt') !== false ||
-        strpos($result, 'FRITZ!Box telephone book restored') !== false;
+        strpos($msg, 'Das Telefonbuch der FRITZ!Box wurde wiederhergestellt') !== false ||
+        strpos($msg, 'FRITZ!Box telephone book restored') !== false;
     return $success;
 }
 
