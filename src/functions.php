@@ -433,6 +433,8 @@ EOT
 
     $root = $xmlPhonebook->xpath('//phonebook')[0];
     $root->addAttribute('name', $conversions['phonebook']['name']);
+    date_default_timezone_set('Europe/Berlin');
+    $root->addChild('timestamp', (string)time());   // see: https://avm.de/fileadmin/user_upload/Global/Service/Schnittstellen/x_contactSCPD.pdf (Table 58)
 
     $converter = new Converter($conversions);
     $restore = new Restorer;

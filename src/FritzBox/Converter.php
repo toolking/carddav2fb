@@ -47,12 +47,6 @@ class Converter
             $this->contact->addChild('carddav_uid', (string)$card->UID);    // reference for image upload
 
             $this->addVip($card);
-            $this->addPhone($numbers);
-
-            // add eMail
-            if (count($adresses)) {
-                $this->addEmail($adresses);
-            }
 
             // add Person
             $person = $this->contact->addChild('person');
@@ -65,6 +59,14 @@ class Converter
                     $person->addChild('imageURL', (string)$card->IMAGEURL);
                 }
             }
+
+            $this->addPhone($numbers);
+            $this->addEmail($adresses);
+            $this->contact->addChild('setup');
+            $features = $this->contact->addChild('features');
+            $features->addAttribute('doorphone', '0');
+            $this->contact->addChild('mod_time', (string)time());
+            $this->contact->addChild('uniqueid');
 
             $contacts[] = $this->contact;
         }
@@ -119,6 +121,8 @@ class Converter
 
         if (Andig\filtersMatch($card, $vipCategories)) {
             $this->contact->addChild('category', '1');
+        } else {
+            $this->contact->addChild('category', '0');
         }
     }
 
@@ -131,16 +135,19 @@ class Converter
     private function addPhone(array $numbers)
     {
         $telephony = $this->contact->addChild('telephony');
+        $telephony->addAttribute('nid', (string)count($numbers));
 
         foreach ($numbers as $idx => $number) {
             $phone = $telephony->addChild('number', $number['number']);
-            $phone->addAttribute('id', (string)$idx);
-
             foreach (['type', 'quickdial', 'vanity'] as $attribute) {
                 if (isset($number[$attribute])) {
                     $phone->addAttribute($attribute, $number[$attribute]);
                 }
             }
+            if ($idx == 0) {
+                $phone->addAttribute('prio', '0');
+            }
+            $phone->addAttribute('id', (string)$idx);
         }
     }
 
