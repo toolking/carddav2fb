@@ -71,6 +71,8 @@ class ConvertCommand extends Command
         if ($xmlPhonebook->asXML($filename)) {
             error_log(sprintf("Succesfull saved phonebook as %s", $filename));
         }
+
+        return 0;
     }
 
     /**
