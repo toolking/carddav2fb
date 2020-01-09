@@ -137,6 +137,9 @@ class Backend
     {
         try {
             $response = $this->getCachedClient()->request('REPORT', $this->url, [
+                'headers' => [
+                    'Content-Type' => 'application/xml',
+                ],
                 'body' => <<<EOD
 <?xml version="1.0" encoding="utf-8"?>
 <C:addressbook-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
