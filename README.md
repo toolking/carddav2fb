@@ -21,6 +21,7 @@ This is an extendeded version of https://github.com/andig/carddav2fb
   * generates an image with keypad and designated quickdial numbers (2-9), which can be uploaded to designated handhelds (see details below)
 
   Additonal with this version (fork):
+  * saveCommand enables the FRITZ!Box phone book to be saved as a local VCF
   * specify with `forcedupload` whether the phone book should be overwritten, or if phone numbers that are not included in the upload are to be saved as vcf by e-mail (see wiki for handling details).
   * specify with `fritzadr` if fax numbers should be extracted from the phonebook and stored as FRITZ!Fax (fax4box) adressbook (FritzAdr.dbf)
 
