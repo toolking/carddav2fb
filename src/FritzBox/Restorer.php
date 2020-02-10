@@ -69,7 +69,7 @@ class Restorer
         $phonebookData = [];
         $numbers = $xmlPhonebook->xpath('//number[@quickdial or @vanity] | //number[starts-with(text(),"**")]');
         foreach ($numbers as $number) {
-            if (preg_match('/00@hd-telefonie.avm.de/', (string)$number)) {
+            if (strpos($number, '@hd-telefonie.avm.de')) {
                 continue;
             }
             $attributes = $this->getPlainArray();                   // it´s easier to handle with the full set
