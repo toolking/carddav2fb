@@ -216,8 +216,8 @@ EOD;
 
             $body = $this->getBody($fritz->getSID(), $phone, $backgroundImage);
             $result = $fritz->postImage($body);
-
-            if (strpos($result, 'Das Bild wurde erfolgreich hinzugefügt')) {
+            if (strpos($result, 'Das Bild wurde erfolgreich hinzugefügt') ||
+                strpos($result, 'The image was added successfully')) {
                 error_log('Background image upload successful');
             } else {
                 error_log('Background image upload failed');
