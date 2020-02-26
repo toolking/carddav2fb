@@ -1,4 +1,4 @@
-FROM alpine:3.10
+FROM alpine:3
 LABEL description="Download CardDAV VCards and upload as phonebook to AVM FRITZ!Box"
 
 VOLUME [ "/data" ]
@@ -9,6 +9,7 @@ RUN set -xe && \
     apk add --no-cache --virtual=run-deps \
         php7-cli \
         php7-curl \
+        php7-ctype \
         php7-dom \
         php7-ftp \
         php7-mbstring \
