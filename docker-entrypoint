@@ -5,6 +5,6 @@ WAIT=10
 while [ ! -f "/data/config.php" ] ; do
     echo "No carddav2fb config found! try again in $WAIT seconds"
     sleep $WAIT
-fi
+done
 cd /srv
 ./carddav2fb $@
