@@ -1,0 +1,27 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: carddav2fb
+spec:
+  suspend: true
+  concurrencyPolicy: Replace
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  schedule: "@hourly"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - command: [ "/srv/docker-entrypoint", "-vvv", "run", "-i", "-c", "/config/config.php" ]
+            name: carddav2fb
+            image: nas:5000/carddav2fb:latest
+            volumeMounts:
+            - mountPath: /config
+              name: c2fbconfig
+          restartPolicy: Never
+          volumes:
+          - configMap:
+              defaultMode: 420
+              name: c2fb
+            name: c2fbconfig
