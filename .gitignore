@@ -8,3 +8,4 @@ cache
 /workbench
 /carddav2fb.wiki
 .vscode
+/k8s/c2fb.yaml
