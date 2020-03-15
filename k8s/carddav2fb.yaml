@@ -4,10 +4,10 @@ metadata:
   name: carddav2fb
 spec:
   suspend: true
-  concurrencyPolicy: Replace
-  successfulJobsHistoryLimit: 1
-  failedJobsHistoryLimit: 1
-  schedule: "@hourly"
+#  concurrencyPolicy: Replace
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  schedule: "32 * * * *"
   jobTemplate:
     spec:
       template:
